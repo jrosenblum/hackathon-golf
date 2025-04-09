@@ -30,8 +30,7 @@
     "eslint-config-next": "latest"
   },
   "engines": {
-    "node": ">=18.x",
-    "npm": ">=9.x"
+    "node": "18.x"
   },
   "description": "A platform for managing company hackathons"
 }
