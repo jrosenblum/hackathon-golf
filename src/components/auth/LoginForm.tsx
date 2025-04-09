@@ -9,32 +9,46 @@ export default function LoginForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [redirectUrl, setRedirectUrl] = useState<string>('/auth/callback')
+  const [redirectUrl, setRedirectUrl] = useState<string>('')
   
-  // Set the redirectUrl when the component mounts in the browser
+  // Set the redirect URL when the component mounts in the browser
   useEffect(() => {
-    // When in the browser, use the current origin for the redirect
-    setRedirectUrl(`${window.location.origin}/auth/callback`)
-    // For debugging purposes, you can log this:
-    console.log('Auth redirect URL set to:', `${window.location.origin}/auth/callback`)
-  }, [])
+    // Always use window.location.origin to ensure the redirect URL
+    // matches the current domain (localhost in dev, app.hackathon.golf in prod)
+    const currentUrl = `${window.location.origin}/auth/callback`;
+    setRedirectUrl(currentUrl);
+    
+    // Log for debugging
+    console.log('Auth redirect URL set to:', currentUrl);
+  }, []);
 
   const handleGoogleLogin = async () => {
     try {
+      // Check if we have a redirect URL before proceeding
+      if (!redirectUrl) {
+        console.error('No redirect URL set for auth, using fallback');
+      }
+      
       setLoading(true)
       setError(null)
       
       const supabase = createClient()
       
+      // Use the current origin for the redirect, ensuring it works in any environment
+      const currentRedirectUrl = redirectUrl || authConfig.getRedirectUrl();
+      
+      console.log('Authenticating with redirect to:', currentRedirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: currentRedirectUrl,
         },
       })
       
       if (error) throw error
     } catch (error: any) {
+      console.error('Authentication error:', error);
       setError(error.message || 'An error occurred during login')
     } finally {
       setLoading(false)
