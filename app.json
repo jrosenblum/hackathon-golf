@@ -1,0 +1,19 @@
+{
+  "name": "Hackathon Signup Platform",
+  "description": "A platform for managing company hackathons",
+  "repository": "https://github.com/yourusername/hackathon-signup",
+  "keywords": ["next.js", "react", "supabase", "hackathon"],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": {
+      "description": "The URL of your Supabase project"
+    },
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": {
+      "description": "The anon key of your Supabase project"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+}

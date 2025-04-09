@@ -5,9 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p $PORT",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "heroku-postbuild": "npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
@@ -15,18 +16,22 @@
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "autoprefixer": "^10.4.21",
     "eslint": "latest",
-    "eslint-config-next": "latest",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^3.4.17"
+    "eslint-config-next": "latest"
   },
-  "description": ""
+  "engines": {
+    "node": ">=18.x",
+    "npm": ">=9.x"
+  },
+  "description": "A platform for managing company hackathons"
 }
