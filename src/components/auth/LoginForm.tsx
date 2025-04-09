@@ -1,13 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { authConfig } from '@/lib/config'
 
 export default function LoginForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [redirectUrl, setRedirectUrl] = useState<string>('/auth/callback')
+  
+  // Set the redirectUrl when the component mounts in the browser
+  useEffect(() => {
+    // When in the browser, use the current origin for the redirect
+    setRedirectUrl(`${window.location.origin}/auth/callback`)
+    // For debugging purposes, you can log this:
+    console.log('Auth redirect URL set to:', `${window.location.origin}/auth/callback`)
+  }, [])
 
   const handleGoogleLogin = async () => {
     try {
@@ -19,7 +29,7 @@ export default function LoginForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
         },
       })
       
