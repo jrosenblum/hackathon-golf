@@ -315,7 +315,7 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
-                <dt className="text-lg leading-6 font-medium text-gray-900">What's the maximum team size?</dt>
+                <dt className="text-lg leading-6 font-medium text-gray-900">What&apos;s the maximum team size?</dt>
                 <dd className="text-base text-gray-500">
                   Teams can have up to 5 members. We encourage diverse teams with a mix of skills and experiences.
                 </dd>
@@ -336,7 +336,7 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
-                <dt className="text-lg leading-6 font-medium text-gray-900">What if I don't have a team?</dt>
+                <dt className="text-lg leading-6 font-medium text-gray-900">What if I don&apos;t have a team?</dt>
                 <dd className="text-base text-gray-500">
                   You can use our platform to find teammates based on skills and interests, or join an existing team looking for additional members.
                 </dd>

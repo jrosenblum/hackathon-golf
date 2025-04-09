@@ -85,7 +85,7 @@ export default async function HackathonDetailPage({ params }: { params: { id: st
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <h3 className="mt-2 text-lg font-medium text-gray-900">Hackathon not found</h3>
-            <p className="mt-1 text-gray-500">The hackathon you're looking for doesn't exist or you don't have permission to view it.</p>
+            <p className="mt-1 text-gray-500">The hackathon you&apos;re looking for doesn&apos;t exist or you don&apos;t have permission to view it.</p>
             <div className="mt-6">
               <Link
                 href="/admin/hackathons"

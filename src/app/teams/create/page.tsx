@@ -165,7 +165,7 @@ export default function CreateTeamPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Create a New Team</h1>
             <p className="mt-2 text-gray-600">
-              Form a team for the hackathon and specify the skills you're looking for
+              Form a team for the hackathon and specify the skills you&apos;re looking for
             </p>
           </div>
           <div className="mt-4 md:mt-0">
@@ -225,7 +225,7 @@ export default function CreateTeamPage() {
                     onChange={(e) => setDescription(e.target.value)}
                     required
                   />
-                  <p className="mt-2 text-sm text-gray-500">Briefly describe your team's focus and what you hope to build.</p>
+                  <p className="mt-2 text-sm text-gray-500">Briefly describe your team&apos;s focus and what you hope to build.</p>
                 </div>
 
                 <div>

@@ -31,7 +31,7 @@ export default function LoginPage() {
 
             <div className="mt-6 text-center text-sm">
               <p className="text-gray-600">
-                If you're having trouble signing in, please contact the hackathon organizers at{' '}
+                If you&apos;re having trouble signing in, please contact the hackathon organizers at{' '}
                 <a href="mailto:hackathon@company.com" className="font-medium text-blue-600 hover:text-blue-500">
                   hackathon@company.com
                 </a>
