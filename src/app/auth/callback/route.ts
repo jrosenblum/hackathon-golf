@@ -13,13 +13,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Log information for debugging
-    console.log('Auth callback processed with origin:', requestUrl.origin)
+    console.log('Auth callback processing')
+    console.log('Request headers:', {
+      host: request.headers.get('host'),
+      forwardedHost: request.headers.get('x-forwarded-host'),
+      forwardedProto: request.headers.get('x-forwarded-proto')
+    })
     
-    // Create a redirect URL using the current request's origin
-    const redirectUrl = createRedirectUrl('/dashboard', requestUrl)
+    // Use the request object directly to access the headers 
+    // for detecting the real origin in production
+    const redirectUrl = createRedirectUrl('/dashboard', request)
     console.log('Redirecting to:', redirectUrl.toString())
     
-    // Redirect to the dashboard
+    // Redirect to the dashboard using the properly detected origin
     return NextResponse.redirect(redirectUrl)
   } catch (error) {
     console.error('Error in auth callback:', error)

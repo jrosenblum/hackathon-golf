@@ -22,7 +22,8 @@ export async function middleware(request: NextRequest) {
     // If there's no session and the user is accessing a protected route, redirect to the login page
     if (!session && !publicRoutes.some(route => pathname.startsWith(route))) {
       // Use our utility to ensure the redirect uses the proper origin
-      const loginUrl = createRedirectUrl('/login', request.url)
+      // Pass the entire request object to access headers
+      const loginUrl = createRedirectUrl('/login', request)
       console.log('Redirecting to login:', loginUrl.toString())
       return NextResponse.redirect(loginUrl)
     }
@@ -30,7 +31,8 @@ export async function middleware(request: NextRequest) {
     // Admin route protection
     if (pathname.startsWith('/admin') && !session?.user?.user_metadata?.isAdmin) {
       // Use our utility to ensure the redirect uses the proper origin
-      const dashboardUrl = createRedirectUrl('/dashboard', request.url)
+      // Pass the entire request object to access headers
+      const dashboardUrl = createRedirectUrl('/dashboard', request)
       console.log('Redirecting to dashboard (not admin):', dashboardUrl.toString())
       return NextResponse.redirect(dashboardUrl)
     }
@@ -39,7 +41,7 @@ export async function middleware(request: NextRequest) {
     // In case of any error, redirect to login
     // Use our utility with a fallback to absolute URL
     try {
-      const loginUrl = createRedirectUrl('/login', request.url)
+      const loginUrl = createRedirectUrl('/login', request)
       return NextResponse.redirect(loginUrl)
     } catch (redirectError) {
       // Ultimate fallback

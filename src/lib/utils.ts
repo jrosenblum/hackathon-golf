@@ -35,13 +35,41 @@ export function createUrl(path: string): string {
  * Creates a URL object using the current origin
  * This is helpful for redirects since it ensures the proper origin is used
  * @param path The path to redirect to
- * @param requestUrl The current request URL to extract the origin from
+ * @param request The current request object or URL to extract the origin from
  * @returns A URL object with the correct origin and path
  */
-export function createRedirectUrl(path: string, requestUrl: string | URL): URL {
-  // If passed as string, convert to URL object
-  const reqUrl = typeof requestUrl === 'string' ? new URL(requestUrl) : requestUrl;
+export function createRedirectUrl(path: string, request: Request | URL | string): URL {
+  let origin: string;
   
-  // Create a new URL using the origin of the request URL
-  return new URL(path, reqUrl.origin);
+  // Check if it's a Request object with headers
+  if (typeof request === 'object' && 'headers' in request) {
+    // Try to get the host from X-Forwarded-Host or Host headers
+    const host = request.headers.get('x-forwarded-host') || 
+                request.headers.get('host') || 
+                'app.hackathon.golf';
+    
+    // Get the protocol (defaulting to https)
+    const protocol = (request.headers.get('x-forwarded-proto') || 'https').split(',')[0];
+    
+    // Construct the origin
+    origin = `${protocol}://${host}`;
+    
+    console.log('Using origin from headers:', origin);
+  } else {
+    // If passed as string or URL object, extract origin as before
+    const reqUrl = typeof request === 'string' ? new URL(request) : request;
+    origin = reqUrl.origin;
+    
+    // Special case for Heroku internal URLs
+    if (origin.includes('localhost:') || origin.includes('127.0.0.1:')) {
+      // Override with production URL if we detect local/internal URLs in production
+      if (process.env.NODE_ENV === 'production') {
+        origin = 'https://app.hackathon.golf';
+        console.log('Overriding internal URL with production domain');
+      }
+    }
+  }
+  
+  // Create a new URL using the derived origin
+  return new URL(path, origin);
 }
