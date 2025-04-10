@@ -58,7 +58,7 @@ export default function Home() {
               <div className="flex items-center flex-1 md:absolute md:inset-y-0 md:left-0">
                 <div className="flex items-center justify-between w-full md:w-auto">
                   <div className="flex items-center">
-                    <img src="/logo.png" alt="Hackathon Platform Logo" className="h-16 w-auto" />
+                    <img src="/logo.png" alt="Hackathon Platform Logo" className="h-24 w-auto" />
                   </div>
                 </div>
               </div>
