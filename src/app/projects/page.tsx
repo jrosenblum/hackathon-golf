@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import MainLayout from '@/components/layout/MainLayout'
 
 async function getProjects() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('projects')
     .select(`

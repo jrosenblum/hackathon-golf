@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 
 async function checkIsAdmin() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
   
   if (!session) {
@@ -25,7 +25,7 @@ async function checkIsAdmin() {
 }
 
 async function getAdminStats() {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data: hackathonsCount } = await supabase
     .from('hackathons')

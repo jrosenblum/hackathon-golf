@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
 async function checkIsAdmin() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
   
   if (!session) {
@@ -24,7 +24,7 @@ async function checkIsAdmin() {
 }
 
 async function getHackathons() {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data, error } = await supabase
     .from('hackathons')

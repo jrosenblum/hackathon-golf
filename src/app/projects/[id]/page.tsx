@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 
 async function getProject(id: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data: project, error } = await supabase
     .from('projects')
@@ -45,7 +45,10 @@ async function getProject(id: string) {
 }
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
-  const project = await getProject(params.id)
+  // For server components, we can directly use the id from params 
+  // as this is a server-side rendering function
+  const { id } = params
+  const project = await getProject(id)
   
   if (!project) {
     return notFound()
