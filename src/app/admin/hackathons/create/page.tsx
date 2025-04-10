@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { addDefaultCriteriaToHackathon } from '@/lib/judging'
 
 export default function CreateHackathonPage() {
   const router = useRouter()
@@ -48,7 +49,7 @@ export default function CreateHackathonPage() {
       // No longer need to deactivate other hackathons as we now support multiple active hackathons
       
       // Create hackathon
-      const { error: hackathonError } = await supabase
+      const { data: hackathonData, error: hackathonError } = await supabase
         .from('hackathons')
         .insert({
           title,
@@ -63,8 +64,15 @@ export default function CreateHackathonPage() {
           max_team_size: parseInt(maxTeamSize),
           is_active: isActive
         })
+        .select('id')
       
       if (hackathonError) throw new Error(hackathonError.message)
+      
+      // Add default judging criteria if hackathon was created successfully
+      if (hackathonData && hackathonData.length > 0) {
+        const hackathonId = hackathonData[0].id;
+        await addDefaultCriteriaToHackathon(supabase, hackathonId);
+      }
       
       // Redirect to admin dashboard
       router.push('/admin')

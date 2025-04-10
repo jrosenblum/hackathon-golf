@@ -12,6 +12,8 @@ async function getProjects() {
       description,
       category,
       technologies,
+      video_url,
+      resources_url,
       is_submitted,
       submission_date,
       teams(id, name, hackathon_id, hackathons(title))

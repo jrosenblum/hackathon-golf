@@ -6,42 +6,85 @@ import MainLayout from '@/components/layout/MainLayout'
 async function getProject(id: string) {
   const supabase = await createClient()
   
-  const { data: project, error } = await supabase
-    .from('projects')
-    .select(`
-      id,
-      title,
-      description, 
-      category,
-      technologies,
-      project_link,
-      is_submitted,
-      submission_date,
-      team_id,
-      teams (
-        id,
-        name,
-        description,
-        team_members (
-          user_id,
-          is_leader,
-          is_approved,
-          profiles (
-            full_name,
-            email
-          )
-        )
-      )
-    `)
-    .eq('id', id)
-    .single()
+  console.log(`Fetching project with ID: ${id}`)
   
-  if (error || !project) {
-    console.error('Error fetching project:', error)
+  try {
+    // Try a simplified query first to check if the project exists
+    const { data: basicProject, error: basicError } = await supabase
+      .from('projects')
+      .select('id, title')
+      .eq('id', id)
+      .maybeSingle()
+    
+    if (basicError) {
+      console.error('Error checking if project exists:', basicError.message || JSON.stringify(basicError))
+      return null
+    }
+    
+    if (!basicProject) {
+      console.error(`Project with ID ${id} does not exist`)
+      return null
+    }
+    
+    console.log(`Found basic project with title: ${basicProject.title}`)
+    
+    // If the project exists, fetch it with all its related data
+    const { data: project, error } = await supabase
+      .from('projects')
+      .select(`
+        id,
+        title,
+        description, 
+        category,
+        technologies,
+        video_url,
+        resources_url,
+        is_submitted,
+        submission_date,
+        team_id,
+        teams!inner (
+          id,
+          name,
+          description
+        )
+      `)
+      .eq('id', id)
+      .single()
+    
+    if (error) {
+      console.error('Error fetching project details:', error.message || JSON.stringify(error))
+      return null
+    }
+    
+    // Now fetch team members in a separate query to simplify
+    const { data: teamMembers, error: teamMembersError } = await supabase
+      .from('team_members')
+      .select(`
+        user_id,
+        is_leader,
+        is_approved,
+        profiles (
+          full_name,
+          email
+        )
+      `)
+      .eq('team_id', project.team_id)
+      .eq('is_approved', true)
+    
+    if (teamMembersError) {
+      console.error('Error fetching team members:', teamMembersError.message || JSON.stringify(teamMembersError))
+    } else {
+      // Add team members to the project
+      project.team_members = teamMembers || []
+    }
+    
+    console.log('Project fetched successfully:', project.title)
+    
+    return project
+  } catch (err) {
+    console.error('Unexpected error in getProject:', err)
     return null
   }
-  
-  return project
 }
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
@@ -54,9 +97,8 @@ export default async function ProjectPage({ params }: { params: { id: string } }
     return notFound()
   }
 
-  const teamMembers = project.teams?.team_members
-    ?.filter((member: any) => member.is_approved)
-    .map((member: any) => ({
+  const teamMembers = project.team_members
+    ?.map((member: any) => ({
       name: member.profiles?.full_name || 'Unknown',
       email: member.profiles?.email || '',
       isLeader: member.is_leader
@@ -68,7 +110,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         <div className="px-4 py-5 sm:px-6 flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{project.title}</h1>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">Submitted by {project.teams?.name}</p>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">Submitted by {project.teams?.name || 'Team'}</p>
           </div>
           <div className="mt-4 md:mt-0">
             <Link
@@ -96,12 +138,24 @@ export default async function ProjectPage({ params }: { params: { id: string } }
               </dd>
             </div>
             
-            {project.project_link && (
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                <dt className="text-sm font-medium text-gray-500">Project Link</dt>
+            
+            {project.resources_url && (
+              <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Resources Link</dt>
                 <dd className="mt-1 text-sm text-blue-600 sm:col-span-2 sm:mt-0">
-                  <Link href={project.project_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                    {project.project_link}
+                  <Link href={project.resources_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    {project.resources_url}
+                  </Link>
+                </dd>
+              </div>
+            )}
+            
+            {project.video_url && (
+              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                <dt className="text-sm font-medium text-gray-500">Demo Video</dt>
+                <dd className="mt-1 text-sm text-blue-600 sm:col-span-2 sm:mt-0">
+                  <Link href={project.video_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    {project.video_url}
                   </Link>
                 </dd>
               </div>
@@ -131,7 +185,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
                 <Link href={`/teams/${project.team_id}`} className="text-blue-600 hover:underline font-medium">
                   {project.teams?.name || 'Unknown team'}
                 </Link>
-                <p className="text-sm text-gray-500 mt-1">{project.teams?.description}</p>
+                <p className="text-sm text-gray-500 mt-1">{project.teams?.description || 'No description available'}</p>
               </dd>
             </div>
 

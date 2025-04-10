@@ -10,6 +10,7 @@ export default function Header({ user }: { user: any }) {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [isJudge, setIsJudge] = useState(false)
   
   // Close menus when clicking outside
   useEffect(() => {
@@ -28,6 +29,40 @@ export default function Header({ user }: { user: any }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+  
+  // Check if user is a judge for any active hackathon
+  useEffect(() => {
+    const checkJudgeStatus = async () => {
+      if (!user?.id) return
+      
+      try {
+        const supabase = createClient()
+        
+        // Check if user is a judge for any active hackathon
+        const { data, error } = await supabase
+          .from('judges')
+          .select(`
+            id,
+            hackathon_id,
+            hackathons!inner(is_active)
+          `)
+          .eq('user_id', user.id)
+          .eq('hackathons.is_active', true)
+          .limit(1)
+        
+        if (error) {
+          console.error('Error checking judge status:', error)
+          return
+        }
+        
+        setIsJudge(data && data.length > 0)
+      } catch (err) {
+        console.error('Error checking judge status:', err)
+      }
+    }
+    
+    checkJudgeStatus()
+  }, [user?.id])
   
   const handleSignOut = async () => {
     try {
@@ -93,6 +128,14 @@ export default function Header({ user }: { user: any }) {
               >
                 Projects
               </Link>
+              {isJudge && (
+                <Link 
+                  href="/judging" 
+                  className={getLinkClassName('/judging')}
+                >
+                  Judging
+                </Link>
+              )}
               {user?.user_metadata?.isAdmin && (
                 <Link 
                   href="/admin" 
@@ -208,6 +251,15 @@ export default function Header({ user }: { user: any }) {
           >
             Projects
           </Link>
+          {isJudge && (
+            <Link 
+              href="/judging" 
+              className={getMobileLinkClassName('/judging')}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Judging
+            </Link>
+          )}
           {user?.user_metadata?.isAdmin && (
             <Link 
               href="/admin" 

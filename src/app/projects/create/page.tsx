@@ -21,7 +21,8 @@ export default function CreateProjectPage() {
   const [category, setCategory] = useState('')
   const [technologies, setTechnologies] = useState<string[]>([])
   const [techInput, setTechInput] = useState('')
-  const [projectLink, setProjectLink] = useState('')
+  const [videoUrl, setVideoUrl] = useState('')
+  const [resourcesUrl, setResourcesUrl] = useState('')
 
   // Check if there's an active hackathon and get user's teams when the component mounts
   useEffect(() => {
@@ -146,7 +147,8 @@ export default function CreateProjectPage() {
           team_id: teamId,
           category,
           technologies,
-          project_link: projectLink || null,
+          video_url: videoUrl || null,
+          resources_url: resourcesUrl || null,
           is_submitted: true,
           submission_date: new Date().toISOString(),
           submitted_by: user.id
@@ -375,18 +377,33 @@ export default function CreateProjectPage() {
                   <p className="mt-2 text-sm text-gray-500">Provide a clear and detailed description of your project. What problem does it solve? How does it work?</p>
                 </div>
 
+                
                 <div>
-                  <label htmlFor="project-link" className="block text-sm font-medium text-gray-700 mb-1">Project Link (Optional)</label>
+                  <label htmlFor="resources-url" className="block text-sm font-medium text-gray-700 mb-1">Resources Link (Optional)</label>
                   <input
                     type="url"
-                    name="project-link"
-                    id="project-link"
+                    name="resources-url"
+                    id="resources-url"
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                    placeholder="https://your-project-demo.com"
-                    value={projectLink}
-                    onChange={(e) => setProjectLink(e.target.value)}
+                    placeholder="https://github.com/your-username/your-project"
+                    value={resourcesUrl}
+                    onChange={(e) => setResourcesUrl(e.target.value)}
                   />
-                  <p className="mt-2 text-sm text-gray-500">Add a link to your project repository, demo, or presentation.</p>
+                  <p className="mt-2 text-sm text-gray-500">Add a link to your project's source code repository.</p>
+                </div>
+                
+                <div>
+                  <label htmlFor="video-url" className="block text-sm font-medium text-gray-700 mb-1">Demo Video Link (Optional)</label>
+                  <input
+                    type="url"
+                    name="video-url"
+                    id="video-url"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    placeholder="https://www.youtube.com/watch?v=example"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                  />
+                  <p className="mt-2 text-sm text-gray-500">Add a link to your project's demo video or presentation.</p>
                 </div>
 
                 <div>
