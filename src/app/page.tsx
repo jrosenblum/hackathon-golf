@@ -394,13 +394,18 @@ export default function Home() {
               </a>
             </div>
             <div className="px-5 py-2">
-              <a href="#" className="text-base text-gray-500 hover:text-gray-900">
+              <Link href="/privacy" className="text-base text-gray-500 hover:text-gray-900">
                 Privacy Policy
-              </a>
+              </Link>
+            </div>
+            <div className="px-5 py-2">
+              <Link href="/terms" className="text-base text-gray-500 hover:text-gray-900">
+                Terms of Service
+              </Link>
             </div>
           </nav>
           <p className="mt-8 text-center text-base text-gray-400">
-            &copy; 2023 Company Hackathon. All rights reserved.
+            &copy; 2025 MH Sub I, LLC dba Internet Brands
           </p>
         </div>
       </footer>
