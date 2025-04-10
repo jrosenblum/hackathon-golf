@@ -11,6 +11,7 @@ export default function Header({ user }: { user: any }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isJudge, setIsJudge] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   
   // Close menus when clicking outside
   useEffect(() => {
@@ -64,13 +65,42 @@ export default function Header({ user }: { user: any }) {
     checkJudgeStatus()
   }, [user?.id])
   
+  // Check if user is an admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user?.id) return
+      
+      try {
+        const supabase = createClient()
+        
+        // Check if user has admin role
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single()
+        
+        if (error) {
+          console.error('Error checking admin status:', error)
+          return
+        }
+        
+        setIsAdmin(data?.is_admin === true)
+      } catch (err) {
+        console.error('Error checking admin status:', err)
+      }
+    }
+    
+    checkAdminStatus()
+  }, [user?.id])
+  
   const handleSignOut = async () => {
     try {
       const supabase = createClient()
       await supabase.auth.signOut()
       
-      // Redirect to home/login page after sign out
-      router.push('/login')
+      // Redirect to home page after sign out
+      router.push('/')
       router.refresh()
     } catch (error) {
       console.error('Error signing out:', error)
@@ -105,8 +135,8 @@ export default function Header({ user }: { user: any }) {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/dashboard" className="text-xl font-bold text-blue-600">
-                Hackathon Platform
+              <Link href="/dashboard" className="flex items-center">
+                <img src="/logo.png" alt="Hackathon Platform Logo" className="h-16 w-auto" />
               </Link>
             </div>
             <nav className="hidden sm:ml-8 sm:flex sm:space-x-8">
@@ -136,7 +166,7 @@ export default function Header({ user }: { user: any }) {
                   Judging
                 </Link>
               )}
-              {user?.user_metadata?.isAdmin && (
+              {isAdmin && (
                 <Link 
                   href="/admin" 
                   className={getLinkClassName('/admin')}
@@ -260,7 +290,7 @@ export default function Header({ user }: { user: any }) {
               Judging
             </Link>
           )}
-          {user?.user_metadata?.isAdmin && (
+          {isAdmin && (
             <Link 
               href="/admin" 
               className={getMobileLinkClassName('/admin')}
