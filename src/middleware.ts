@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createRedirectUrl } from '@/lib/utils'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -20,16 +21,30 @@ export async function middleware(request: NextRequest) {
 
     // If there's no session and the user is accessing a protected route, redirect to the login page
     if (!session && !publicRoutes.some(route => pathname.startsWith(route))) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      // Use our utility to ensure the redirect uses the proper origin
+      const loginUrl = createRedirectUrl('/login', request.url)
+      console.log('Redirecting to login:', loginUrl.toString())
+      return NextResponse.redirect(loginUrl)
     }
 
     // Admin route protection
     if (pathname.startsWith('/admin') && !session?.user?.user_metadata?.isAdmin) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      // Use our utility to ensure the redirect uses the proper origin
+      const dashboardUrl = createRedirectUrl('/dashboard', request.url)
+      console.log('Redirecting to dashboard (not admin):', dashboardUrl.toString())
+      return NextResponse.redirect(dashboardUrl)
     }
   } catch (error) {
+    console.error('Middleware error:', error)
     // In case of any error, redirect to login
-    return NextResponse.redirect(new URL('/login', request.url))
+    // Use our utility with a fallback to absolute URL
+    try {
+      const loginUrl = createRedirectUrl('/login', request.url)
+      return NextResponse.redirect(loginUrl)
+    } catch (redirectError) {
+      // Ultimate fallback
+      return NextResponse.redirect('https://app.hackathon.golf/login')
+    }
   }
 
   return NextResponse.next()
