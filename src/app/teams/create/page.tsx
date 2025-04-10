@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import MainLayout from '@/components/layout/MainLayout'
 
 export default function CreateTeamPage() {
   const router = useRouter()
@@ -113,53 +114,57 @@ export default function CreateTeamPage() {
   // Show a message if there's no active hackathon
   if (noActiveHackathon) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8 sm:px-6 md:px-8">
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <h3 className="mt-2 text-lg font-medium text-gray-900">No Active Hackathon</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                There is no active hackathon at this time. Teams can only be created during active hackathons.
-              </p>
-              <div className="mt-6">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Back to Dashboard
-                </Link>
+      <MainLayout>
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:p-6">
+              <div className="text-center">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h3 className="mt-2 text-lg font-medium text-gray-900">No Active Hackathon</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  There is no active hackathon at this time. Teams can only be created during active hackathons.
+                </p>
+                <div className="mt-6">
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Back to Dashboard
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </MainLayout>
     )
   }
 
   // Show loading state while checking for active hackathon
   if (isLoading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8 sm:px-6 md:px-8">
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="text-center">
-              <svg className="animate-spin mx-auto h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p className="mt-2 text-sm text-gray-500">Loading...</p>
+      <MainLayout>
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:p-6">
+              <div className="text-center">
+                <svg className="animate-spin mx-auto h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="mt-2 text-sm text-gray-500">Loading...</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </MainLayout>
     )
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <MainLayout>
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
@@ -296,6 +301,6 @@ export default function CreateTeamPage() {
           </form>
         </div>
       </div>
-    </div>
+    </MainLayout>
   )
 }
