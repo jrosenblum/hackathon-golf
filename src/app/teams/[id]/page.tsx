@@ -18,7 +18,9 @@ export default function TeamDetailPage() {
   const [userIsMember, setUserIsMember] = useState(false)
   const [userHasRequested, setUserHasRequested] = useState(false)
   const [joinRequestSubmitting, setJoinRequestSubmitting] = useState(false)
+  const [leaveTeamSubmitting, setLeaveTeamSubmitting] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [currentUserMemberId, setCurrentUserMemberId] = useState<string | null>(null)
   const [projects, setProjects] = useState<any[]>([])
 
   useEffect(() => {
@@ -84,10 +86,14 @@ export default function TeamDetailPage() {
         
         // Check if current user is a member or has requested to join
         if (user) {
-          const isMember = membersData?.some(m => 
+          const userMember = membersData?.find(m => 
             m.user_id === user.id && m.is_approved
           )
-          setUserIsMember(!!isMember)
+          setUserIsMember(!!userMember)
+          
+          if (userMember) {
+            setCurrentUserMemberId(userMember.id)
+          }
           
           const hasRequested = membersData?.some(m => 
             m.user_id === user.id && !m.is_approved
@@ -145,6 +151,156 @@ export default function TeamDetailPage() {
       setError(err instanceof Error ? err.message : 'Failed to send join request')
     } finally {
       setJoinRequestSubmitting(false)
+    }
+  }
+  
+  // New function to handle approval of team join requests
+  const handleApproveRequest = async (memberId: string) => {
+    if (!currentUser) return
+    
+    try {
+      setIsLoading(true)
+      const supabase = createClient()
+      
+      // Update the team member record to approved status
+      const { error } = await supabase
+        .from('team_members')
+        .update({ is_approved: true })
+        .eq('id', memberId)
+        
+      if (error) throw new Error(error.message)
+      
+      // Update the local state to reflect the change
+      setMembers(prevMembers => 
+        prevMembers.map(member => 
+          member.id === memberId 
+            ? { ...member, is_approved: true } 
+            : member
+        )
+      )
+      
+    } catch (err) {
+      console.error('Error approving team member:', err)
+      setError(err instanceof Error ? err.message : 'Failed to approve team member')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // New function to handle rejection of team join requests
+  const handleRejectRequest = async (memberId: string) => {
+    if (!currentUser) return
+    
+    try {
+      setIsLoading(true)
+      const supabase = createClient()
+      
+      // Delete the team member record
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId)
+        
+      if (error) throw new Error(error.message)
+      
+      // Update the local state to remove the rejected member
+      setMembers(prevMembers => 
+        prevMembers.filter(member => member.id !== memberId)
+      )
+      
+    } catch (err) {
+      console.error('Error rejecting team member:', err)
+      setError(err instanceof Error ? err.message : 'Failed to reject team member')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // Function to handle leaving a team
+  const handleLeaveTeam = async () => {
+    if (!currentUser || !currentUserMemberId) return
+    
+    try {
+      setLeaveTeamSubmitting(true)
+      setError(null)
+      const supabase = createClient()
+      
+      // Check if this user is the last team leader
+      const teamLeaders = members.filter(m => m.is_leader && m.is_approved)
+      const isLastLeader = teamLeaders.length === 1 && teamLeaders[0].user_id === currentUser.id
+      
+      if (isLastLeader) {
+        // Check if there are other team members
+        const otherMembers = members.filter(m => m.user_id !== currentUser.id && m.is_approved)
+        
+        if (otherMembers.length > 0) {
+          setError("As the last team leader, you cannot leave the team while other members remain. Please assign a new leader or remove other members first.")
+          return
+        }
+      }
+      
+      // Delete the team member record
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', currentUserMemberId)
+        
+      if (error) throw new Error(error.message)
+      
+      // Update UI state
+      setUserIsMember(false)
+      setCurrentUserMemberId(null)
+      
+      // Remove the user from the members list
+      setMembers(prevMembers => 
+        prevMembers.filter(member => member.id !== currentUserMemberId)
+      )
+      
+      // If they were the last member and we want to auto-delete empty teams:
+      // const remainingMembers = members.filter(m => m.id !== currentUserMemberId)
+      // if (remainingMembers.length === 0) {
+      //   router.push('/teams')
+      // }
+      
+    } catch (err) {
+      console.error('Error leaving team:', err)
+      setError(err instanceof Error ? err.message : 'Failed to leave team')
+    } finally {
+      setLeaveTeamSubmitting(false)
+    }
+  }
+  
+  // Function to assign team leadership
+  const handleAssignLeader = async (memberId: string) => {
+    if (!currentUser) return
+    
+    try {
+      setIsLoading(true)
+      setError(null)
+      const supabase = createClient()
+      
+      // Update the team member record to make them a leader
+      const { error } = await supabase
+        .from('team_members')
+        .update({ is_leader: true })
+        .eq('id', memberId)
+        
+      if (error) throw new Error(error.message)
+      
+      // Update the local state to reflect the change
+      setMembers(prevMembers => 
+        prevMembers.map(member => 
+          member.id === memberId 
+            ? { ...member, is_leader: true } 
+            : member
+        )
+      )
+      
+    } catch (err) {
+      console.error('Error assigning team leader:', err)
+      setError(err instanceof Error ? err.message : 'Failed to assign team leader role')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -340,40 +496,89 @@ export default function TeamDetailPage() {
 
           {/* Team members */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            <div className="border-b border-gray-200 px-6 py-5">
+            <div className="border-b border-gray-200 px-6 py-5 flex justify-between items-center">
               <h2 className="text-lg font-semibold text-gray-900">Team Members ({approvedMembers.length})</h2>
+              {userIsMember && (
+                <button
+                  onClick={handleLeaveTeam}
+                  disabled={leaveTeamSubmitting}
+                  className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded shadow-sm text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  {leaveTeamSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-0.5 mr-2 h-3 w-3 text-red-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Leaving...
+                    </>
+                  ) : 'Leave Team'}
+                </button>
+              )}
             </div>
             <ul className="divide-y divide-gray-200">
-              {approvedMembers.map((member: any) => (
-                <li key={member.id} className="px-6 py-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                      {member.profiles?.avatar_url ? (
-                        <img 
-                          src={member.profiles.avatar_url}
-                          alt={member.profiles.full_name}
-                          className="h-10 w-10 rounded-full"
-                        />
-                      ) : (
-                        <svg className="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
+              {approvedMembers.map((member: any) => {
+                // Check if current user is a team leader
+                const isCurrentUserLeader = userIsMember && members.some(m => 
+                  m.user_id === currentUser?.id && m.is_leader && m.is_approved
+                );
+                
+                // Only show assign leader button if:
+                // 1. Current user is a leader
+                // 2. This member is not already a leader
+                // 3. This member is not the current user
+                const showAssignLeaderButton = isCurrentUserLeader 
+                  && !member.is_leader 
+                  && member.user_id !== currentUser?.id;
+                  
+                return (
+                  <li key={member.id} className="px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center flex-1">
+                        <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                          {member.profiles?.avatar_url ? (
+                            <img 
+                              src={member.profiles.avatar_url}
+                              alt={member.profiles.full_name}
+                              className="h-10 w-10 rounded-full"
+                            />
+                          ) : (
+                            <svg className="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="text-sm font-medium text-gray-900">
+                            {member.profiles?.full_name || 'Unknown User'}
+                            {member.is_leader && (
+                              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Team Leader
+                              </span>
+                            )}
+                            {member.user_id === currentUser?.id && (
+                              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                You
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-sm text-gray-500">{member.profiles?.email || ''}</p>
+                        </div>
+                      </div>
+                      
+                      {showAssignLeaderButton && (
+                        <button
+                          type="button"
+                          onClick={() => handleAssignLeader(member.id)}
+                          className="inline-flex items-center px-3 py-1.5 border border-blue-300 text-xs font-medium rounded shadow-sm text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          Assign as Leader
+                        </button>
                       )}
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        {member.profiles?.full_name || 'Unknown User'}
-                        {member.is_leader && (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Team Leader
-                          </span>
-                        )}
-                      </h3>
-                      <p className="text-sm text-gray-500">{member.profiles?.email || ''}</p>
-                    </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
 
               {approvedMembers.length === 0 && (
                 <li className="px-6 py-4 text-center text-gray-500">
@@ -406,11 +611,27 @@ export default function TeamDetailPage() {
                           </svg>
                         )}
                       </div>
-                      <div className="ml-4">
+                      <div className="ml-4 flex-1">
                         <h3 className="text-sm font-medium text-gray-900">
                           {member.profiles?.full_name || 'Unknown User'}
                         </h3>
                         <p className="text-sm text-gray-500">{member.profiles?.email || ''}</p>
+                      </div>
+                      <div className="ml-4 flex space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleApproveRequest(member.id)}
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRejectRequest(member.id)}
+                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                          Reject
+                        </button>
                       </div>
                     </div>
                   </li>

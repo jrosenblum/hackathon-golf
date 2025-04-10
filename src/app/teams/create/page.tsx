@@ -12,39 +12,55 @@ export default function CreateTeamPage() {
   const [error, setError] = useState<string | null>(null)
   const [noActiveHackathon, setNoActiveHackathon] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [activeHackathons, setActiveHackathons] = useState<any[]>([])
+  const [selectedHackathonId, setSelectedHackathonId] = useState<string>('')
   
   const [teamName, setTeamName] = useState('')
   const [description, setDescription] = useState('')
   const [neededSkills, setNeededSkills] = useState<string[]>([])
   const [skillInput, setSkillInput] = useState('')
 
-  // Check if there's an active hackathon when the component mounts
+  // Check for active hackathons when the component mounts
   useEffect(() => {
-    const checkActiveHackathon = async () => {
+    const fetchActiveHackathons = async () => {
       try {
         setIsLoading(true)
         const supabase = createClient()
         
+        // Get hackathon from URL query parameter if available
+        const urlParams = new URLSearchParams(window.location.search);
+        const hackathonIdFromUrl = urlParams.get('hackathon');
+        
+        // Get all active hackathons
         const { data: hackathons, error } = await supabase
           .from('hackathons')
-          .select('id')
+          .select('id, title')
           .eq('is_active', true)
-          .limit(1)
+          .order('start_date', { ascending: false })
         
         if (error) throw error
         
         if (!hackathons || hackathons.length === 0) {
           setNoActiveHackathon(true)
+        } else {
+          setActiveHackathons(hackathons)
+          
+          // Set selected hackathon to the one from URL, or default to the first one
+          if (hackathonIdFromUrl && hackathons.some(h => h.id === hackathonIdFromUrl)) {
+            setSelectedHackathonId(hackathonIdFromUrl)
+          } else {
+            setSelectedHackathonId(hackathons[0].id)
+          }
         }
       } catch (error) {
-        console.error('Error checking active hackathon:', error)
-        setError('Could not check for active hackathons')
+        console.error('Error fetching active hackathons:', error)
+        setError('Could not fetch active hackathons')
       } finally {
         setIsLoading(false)
       }
     }
     
-    checkActiveHackathon()
+    fetchActiveHackathons()
   }, [])
 
   const addSkill = () => {
@@ -66,39 +82,76 @@ export default function CreateTeamPage() {
       return
     }
     
+    if (!selectedHackathonId) {
+      setError('Please select a hackathon to create a team for')
+      return
+    }
+    
     setIsSubmitting(true)
     setError(null)
 
     try {
       const supabase = createClient()
       
-      // Get hackathon id
-      const { data: hackathons, error: hackathonError } = await supabase
-        .from('hackathons')
-        .select('id')
-        .eq('is_active', true)
-        .limit(1)
-      
-      if (hackathonError) throw new Error('Could not fetch active hackathon')
-      if (!hackathons || hackathons.length === 0) throw new Error('No active hackathon found')
-      
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
-      // Create team
-      const { error: teamError } = await supabase
+      // Check if user is already a member of a team in this hackathon
+      const { data: existingMemberships, error: membershipError } = await supabase
+        .from('team_members')
+        .select(`
+          team_id,
+          teams!inner(hackathon_id)
+        `)
+        .eq('user_id', user.id)
+        .eq('teams.hackathon_id', selectedHackathonId)
+        .eq('is_approved', true)
+      
+      if (membershipError) throw new Error('Could not check existing team memberships')
+      
+      if (existingMemberships && existingMemberships.length > 0) {
+        throw new Error('You are already a member of a team in this hackathon. Please leave that team before creating a new one.')
+      }
+
+      // Create team and add creator as team leader in a single function call
+      // We'll use a serverless function or stored procedure in a production app
+      // For now, create team first and handle error for member creation
+      const { data: teamData, error: teamError } = await supabase
         .from('teams')
         .insert({
-          hackathon_id: hackathons[0].id,
+          hackathon_id: selectedHackathonId,
           name: teamName,
           description,
           needed_skills: neededSkills,
           created_by: user.id,
           looking_for_members: true
         })
+        .select('id')
       
       if (teamError) throw new Error(teamError.message)
+      
+      // Add creator as an approved team leader
+      if (teamData && teamData.length > 0) {
+        try {
+          const { error: memberError } = await supabase
+            .from('team_members')
+            .insert({
+              team_id: teamData[0].id,
+              user_id: user.id,
+              is_approved: true,
+              is_leader: true
+            })
+            
+          if (memberError) {
+            console.error('Error adding team creator as member:', memberError)
+            // Continue anyway since the team was created successfully
+          }
+        } catch (memberError) {
+          console.error('Exception adding team creator as member:', memberError)
+          // Continue anyway since the team was created successfully
+        }
+      }
       
       // Redirect to teams page
       router.push('/teams')
@@ -205,6 +258,24 @@ export default function CreateTeamPage() {
           <form onSubmit={handleSubmit}>
             <div className="p-6">
               <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label htmlFor="hackathon" className="block text-sm font-medium text-gray-700 mb-1">Hackathon</label>
+                  <select
+                    id="hackathon"
+                    name="hackathon"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    value={selectedHackathonId}
+                    onChange={(e) => setSelectedHackathonId(e.target.value)}
+                    required
+                  >
+                    {activeHackathons.map((hackathon) => (
+                      <option key={hackathon.id} value={hackathon.id}>
+                        {hackathon.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
                 <div>
                   <label htmlFor="team-name" className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
                   <input

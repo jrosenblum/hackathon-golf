@@ -45,15 +45,7 @@ export default function CreateHackathonPage() {
       if (profileError) throw new Error(profileError.message)
       if (!profile?.is_admin) throw new Error('Only admins can create hackathons')
       
-      // If creating an active hackathon, deactivate all other hackathons
-      if (isActive) {
-        const { error: updateError } = await supabase
-          .from('hackathons')
-          .update({ is_active: false })
-          .not('id', 'is', null) // Update all hackathons
-        
-        if (updateError) throw new Error(updateError.message)
-      }
+      // No longer need to deactivate other hackathons as we now support multiple active hackathons
       
       // Create hackathon
       const { error: hackathonError } = await supabase
@@ -287,7 +279,7 @@ export default function CreateHackathonPage() {
                     </div>
                   </fieldset>
                   <p className="mt-2 text-xs text-gray-500">
-                    If checked, this will become the current active hackathon and any other active hackathons will be deactivated.
+                    If checked, this hackathon will be marked as active. Multiple hackathons can be active simultaneously.
                   </p>
                 </div>
               </div>

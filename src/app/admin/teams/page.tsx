@@ -24,61 +24,58 @@ async function checkIsAdmin() {
   return true
 }
 
-async function getHackathons() {
+async function getTeams() {
   const supabase = await createClient()
   
   const { data, error } = await supabase
-    .from('hackathons')
-    .select('*')
+    .from('teams')
+    .select(`
+      *,
+      hackathons(title),
+      team_members(id)
+    `)
     .order('created_at', { ascending: false })
   
   if (error) {
-    console.error('Error fetching hackathons:', error)
+    console.error('Error fetching teams:', error)
     return []
   }
   
-  return data || []
+  return (data || []).map(team => ({
+    ...team,
+    hackathon_title: team.hackathons?.title || 'No Hackathon',
+    member_count: team.team_members?.length || 0
+  }))
 }
 
-export default async function HackathonsPage() {
+export default async function TeamsPage() {
   await checkIsAdmin()
-  const hackathons = await getHackathons()
+  const teams = await getTeams()
   
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Manage Hackathons</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Manage Teams</h1>
             <p className="mt-2 text-gray-600">
-              View, edit, and create hackathon events
+              View and manage hackathon teams
             </p>
           </div>
           <div className="mt-4 md:mt-0">
-            <Link
-              href="/admin/hackathons/create"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Create New Hackathon
+            <Link href="/admin" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+              Back to Dashboard
             </Link>
           </div>
         </div>
 
-        {hackathons.length === 0 ? (
+        {teams.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900">No hackathons available</h3>
-            <p className="mt-1 text-gray-500">Get started by creating a new hackathon.</p>
-            <div className="mt-6">
-              <Link
-                href="/admin/hackathons/create"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Create Hackathon
-              </Link>
-            </div>
+            <h3 className="mt-2 text-lg font-medium text-gray-900">No teams available</h3>
+            <p className="mt-1 text-gray-500">Teams will appear here once they are created.</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -86,16 +83,16 @@ export default async function HackathonsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Title
+                    Team Name
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Hackathon
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dates
+                    Members
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Teams
+                    Created
                   </th>
                   <th scope="col" className="relative px-6 py-3">
                     <span className="sr-only">Actions</span>
@@ -103,37 +100,28 @@ export default async function HackathonsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {hackathons.map((hackathon) => {
-                  const startDate = new Date(hackathon.start_date).toLocaleDateString()
-                  const endDate = new Date(hackathon.end_date).toLocaleDateString()
+                {teams.map((team) => {
+                  const createdDate = new Date(team.created_at).toLocaleDateString()
                   
                   return (
-                    <tr key={hackathon.id} className="hover:bg-gray-50">
+                    <tr key={team.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">{hackathon.title}</div>
+                        <div className="text-sm font-medium text-blue-600">{team.name}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {hackathon.is_active ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            Inactive
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{startDate} - {endDate}</div>
+                        <div className="text-sm text-gray-900">{team.hackathon_title}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {hackathon.team_count || 0} teams
+                        {team.member_count} members
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{createdDate}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link href={`/admin/hackathons/${hackathon.id}`} className="text-blue-600 hover:text-blue-900 mr-4">
+                        <Link href={`/admin/teams/${team.id}`} className="text-blue-600 hover:text-blue-900 mr-4">
                           View
                         </Link>
-                        <Link href={`/admin/hackathons/${hackathon.id}/edit`} className="text-blue-600 hover:text-blue-900">
+                        <Link href={`/admin/teams/${team.id}/edit`} className="text-blue-600 hover:text-blue-900">
                           Edit
                         </Link>
                       </td>

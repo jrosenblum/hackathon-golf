@@ -2,9 +2,129 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import MainLayout from '@/components/layout/MainLayout'
 
+// Helper function to format dates
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+// Function to determine the current phase of a hackathon
+function getHackathonPhase(hackathon: any): {
+  phase: 'registration' | 'team_formation' | 'hacking' | 'submission' | 'judging' | 'completed',
+  nextDeadline: string,
+  nextDeadlineDate: string
+} {
+  const now = new Date();
+  
+  if (now < new Date(hackathon.registration_deadline)) {
+    return {
+      phase: 'registration',
+      nextDeadline: 'Registration Deadline',
+      nextDeadlineDate: hackathon.registration_deadline
+    };
+  } else if (now < new Date(hackathon.team_formation_deadline)) {
+    return {
+      phase: 'team_formation',
+      nextDeadline: 'Team Formation Deadline',
+      nextDeadlineDate: hackathon.team_formation_deadline
+    };
+  } else if (now < new Date(hackathon.start_date)) {
+    return {
+      phase: 'team_formation',
+      nextDeadline: 'Hackathon Begins',
+      nextDeadlineDate: hackathon.start_date
+    };
+  } else if (now < new Date(hackathon.submission_deadline)) {
+    return {
+      phase: 'hacking',
+      nextDeadline: 'Project Submission Deadline',
+      nextDeadlineDate: hackathon.submission_deadline
+    };
+  } else if (now < new Date(hackathon.judging_end)) {
+    return {
+      phase: 'judging',
+      nextDeadline: 'Judging Ends',
+      nextDeadlineDate: hackathon.judging_end
+    };
+  } else {
+    return {
+      phase: 'completed',
+      nextDeadline: 'Hackathon Completed',
+      nextDeadlineDate: hackathon.end_date
+    };
+  }
+}
+
+// Function to render the status badge
+function HackathonStatusBadge({ phase }: { phase: string }) {
+  let bgColor = 'bg-gray-100';
+  let textColor = 'text-gray-800';
+  let label = 'Unknown';
+  
+  switch (phase) {
+    case 'registration':
+      bgColor = 'bg-blue-100';
+      textColor = 'text-blue-800';
+      label = 'Registration Open';
+      break;
+    case 'team_formation':
+      bgColor = 'bg-indigo-100';
+      textColor = 'text-indigo-800';
+      label = 'Team Formation';
+      break;
+    case 'hacking':
+      bgColor = 'bg-green-100';
+      textColor = 'text-green-800';
+      label = 'In Progress';
+      break;
+    case 'submission':
+      bgColor = 'bg-yellow-100';
+      textColor = 'text-yellow-800';
+      label = 'Submissions Due';
+      break;
+    case 'judging':
+      bgColor = 'bg-purple-100';
+      textColor = 'text-purple-800';
+      label = 'Judging';
+      break;
+    case 'completed':
+      bgColor = 'bg-gray-100';
+      textColor = 'text-gray-800';
+      label = 'Completed';
+      break;
+  }
+  
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}>
+      {label}
+    </span>
+  );
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  
+  // Get all active and upcoming hackathons
+  const now = new Date().toISOString();
+  const { data: hackathons } = await supabase
+    .from('hackathons')
+    .select('*')
+    .or(`end_date.gt.${now},is_active.eq.true`)
+    .order('start_date', { ascending: true })
+    .limit(5);
+  
+  // Separate active and upcoming hackathons
+  const activeHackathons = hackathons?.filter(h => 
+    new Date(h.start_date) <= new Date() && new Date(h.end_date) >= new Date()
+  ) || [];
+  
+  const upcomingHackathons = hackathons?.filter(h => 
+    new Date(h.start_date) > new Date()
+  ) || [];
   
   return (
     <MainLayout>
@@ -90,61 +210,106 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Timeline */}
+      {/* Active Hackathons */}
       <div className="mt-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Hackathon Timeline</h2>
-        <div className="bg-white shadow overflow-hidden rounded-lg">
-          <ul className="divide-y divide-gray-200">
-            <li className="px-6 py-4">
-              <div className="flex items-center">
-                <div className="bg-green-500 rounded-full h-8 w-8 flex items-center justify-center text-white">
-                  ✓
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-900">Registration Open</p>
-                  <p className="text-sm text-gray-500">Now</p>
-                </div>
-              </div>
-            </li>
-            
-            <li className="px-6 py-4">
-              <div className="flex items-center">
-                <div className="bg-gray-300 rounded-full h-8 w-8 flex items-center justify-center text-white">
-                  2
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-900">Team Formation Deadline</p>
-                  <p className="text-sm text-gray-500">October 5, 2023</p>
-                </div>
-              </div>
-            </li>
-            
-            <li className="px-6 py-4">
-              <div className="flex items-center">
-                <div className="bg-gray-300 rounded-full h-8 w-8 flex items-center justify-center text-white">
-                  3
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-900">Hackathon Begins</p>
-                  <p className="text-sm text-gray-500">October 15, 2023</p>
-                </div>
-              </div>
-            </li>
-            
-            <li className="px-6 py-4">
-              <div className="flex items-center">
-                <div className="bg-gray-300 rounded-full h-8 w-8 flex items-center justify-center text-white">
-                  4
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-900">Project Submission Deadline</p>
-                  <p className="text-sm text-gray-500">October 20, 2023</p>
-                </div>
-              </div>
-            </li>
-          </ul>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Active Hackathons</h2>
+        {activeHackathons.length > 0 ? (
+          <div className="bg-white shadow overflow-hidden rounded-lg">
+            <ul className="divide-y divide-gray-200">
+              {activeHackathons.map((hackathon) => {
+                const { phase, nextDeadline, nextDeadlineDate } = getHackathonPhase(hackathon);
+                return (
+                  <li key={hackathon.id} className="px-6 py-5">
+                    <div className="flex flex-col sm:flex-row sm:justify-between">
+                      <div className="mb-2 sm:mb-0">
+                        <div className="flex items-center">
+                          <h3 className="text-lg font-medium text-gray-900 mr-3">{hackathon.title}</h3>
+                          <HackathonStatusBadge phase={phase} />
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {formatDate(hackathon.start_date)} - {formatDate(hackathon.end_date)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <p className="text-sm font-medium text-gray-700">Next: {nextDeadline}</p>
+                        <p className="text-sm text-gray-500">{formatDate(nextDeadlineDate)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex space-x-3">
+                      <Link
+                        href={`/hackathons/${hackathon.id}`}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                      >
+                        View Details
+                      </Link>
+                      <Link
+                        href={`/teams?hackathon=${hackathon.id}`}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        Browse Teams
+                      </Link>
+                      <Link
+                        href={`/teams/create?hackathon=${hackathon.id}`}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        Create Team
+                      </Link>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="mt-2 text-lg font-medium text-gray-900">No Active Hackathons</h3>
+            <p className="mt-1 text-gray-500">Check back later or view upcoming hackathons below.</p>
+          </div>
+        )}
       </div>
+
+      {/* Upcoming Hackathons */}
+      {upcomingHackathons.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Upcoming Hackathons</h2>
+          <div className="bg-white shadow overflow-hidden rounded-lg">
+            <ul className="divide-y divide-gray-200">
+              {upcomingHackathons.map((hackathon) => (
+                <li key={hackathon.id} className="px-6 py-5">
+                  <div className="flex flex-col sm:flex-row sm:justify-between">
+                    <div className="mb-2 sm:mb-0">
+                      <div className="flex items-center">
+                        <h3 className="text-lg font-medium text-gray-900 mr-3">{hackathon.title}</h3>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Upcoming
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {formatDate(hackathon.start_date)} - {formatDate(hackathon.end_date)}
+                      </p>
+                    </div>
+                    <div className="flex flex-col justify-center">
+                      <p className="text-sm font-medium text-gray-700">Registration Opens</p>
+                      <p className="text-sm text-gray-500">Now</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      href={`/hackathons/${hackathon.id}`}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      View Details
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </MainLayout>
   )
 }

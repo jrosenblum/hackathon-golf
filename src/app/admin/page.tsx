@@ -27,21 +27,37 @@ async function checkIsAdmin() {
 async function getAdminStats() {
   const supabase = await createClient()
   
-  const { data: hackathonsCount } = await supabase
+  const { count: hackathonsCount, error: hackathonsError } = await supabase
     .from('hackathons')
-    .select('id', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true })
   
-  const { data: usersCount } = await supabase
+  if (hackathonsError) {
+    console.error('Error fetching hackathons count:', hackathonsError)
+  }
+  
+  const { count: usersCount, error: usersError } = await supabase
     .from('profiles')
-    .select('id', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true })
   
-  const { data: teamsCount } = await supabase
+  if (usersError) {
+    console.error('Error fetching users count:', usersError)
+  }
+  
+  const { count: teamsCount, error: teamsError } = await supabase
     .from('teams')
-    .select('id', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true })
   
-  const { data: projectsCount } = await supabase
+  if (teamsError) {
+    console.error('Error fetching teams count:', teamsError)
+  }
+  
+  const { count: projectsCount, error: projectsError } = await supabase
     .from('projects')
-    .select('id', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true })
+  
+  if (projectsError) {
+    console.error('Error fetching projects count:', projectsError)
+  }
   
   return {
     hackathonsCount: hackathonsCount || 0,
