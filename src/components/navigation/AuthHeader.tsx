@@ -18,7 +18,7 @@ export default function AuthHeader() {
         const { data: { session } } = await supabase.auth.getSession()
         
         if (!session?.user) {
-          router.push('/login')
+          setLoading(false)
           return
         }
         
@@ -38,7 +38,7 @@ export default function AuthHeader() {
       (event, session) => {
         if (event === 'SIGNED_OUT') {
           setUser(null)
-          router.push('/login')
+          router.push('/')
         } else if (session) {
           setUser(session.user)
         }

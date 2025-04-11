@@ -97,13 +97,16 @@ export default function Header({ user }: { user: any }) {
   const handleSignOut = async () => {
     try {
       const supabase = createClient()
-      await supabase.auth.signOut()
       
-      // Redirect to home page after sign out
-      router.push('/')
-      router.refresh()
+      // First redirect to home page - do this before signOut to ensure it happens
+      window.location.href = '/'
+      
+      // Then sign out - this will happen after the redirect has started
+      await supabase.auth.signOut()
     } catch (error) {
       console.error('Error signing out:', error)
+      // If there's an error, still try to redirect
+      window.location.href = '/'
     }
   }
   

@@ -76,12 +76,21 @@ export default function CreateProjectPage() {
           return
         }
 
-        const formattedTeams = teams.map(membership => ({
-          id: membership.teams.id,
-          name: membership.teams.name,
-          isLeader: membership.is_leader
-        }))
+        const formattedTeams = teams
+          .filter(membership => membership.teams) // Filter out any null teams
+          .map(membership => ({
+            id: membership.teams.id,
+            name: membership.teams.name,
+            isLeader: membership.is_leader
+          }))
 
+        // Check if we have any valid teams after filtering
+        if (formattedTeams.length === 0) {
+          setNoTeam(true)
+          setIsLoading(false)
+          return
+        }
+        
         setUserTeams(formattedTeams)
         
         // If user only has one team, select it by default
