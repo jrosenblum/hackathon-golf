@@ -132,8 +132,40 @@ export default function TeamDetailPage() {
     
     try {
       setJoinRequestSubmitting(true)
+      setError(null)
       const supabase = createClient()
       
+      // First check if the user is already on a team in this hackathon
+      const { data: hackathonId } = await supabase
+        .from('teams')
+        .select('hackathon_id')
+        .eq('id', teamId)
+        .single()
+      
+      if (hackathonId) {
+        // Check if the user is already on a team in this hackathon
+        const { data: existingTeams } = await supabase
+          .from('team_members')
+          .select(`
+            id,
+            is_approved,
+            teams!inner(
+              id,
+              name,
+              hackathon_id
+            )
+          `)
+          .eq('user_id', currentUser.id)
+          .eq('teams.hackathon_id', hackathonId.hackathon_id)
+          .eq('is_approved', true)
+        
+        if (existingTeams && existingTeams.length > 0) {
+          const teamName = existingTeams[0].teams.name
+          throw new Error(`You're already a member of team "${teamName}" in this hackathon. You can only be on one team per hackathon.`)
+        }
+      }
+      
+      // Proceed with joining the team
       const { error } = await supabase
         .from('team_members')
         .insert({
@@ -143,7 +175,13 @@ export default function TeamDetailPage() {
           is_approved: false
         })
         
-      if (error) throw new Error(error.message)
+      if (error) {
+        // Handle RLS policy violation with a more specific message
+        if (error.message.includes('violates row-level security policy')) {
+          throw new Error('You cannot join this team because you are already a member of another team in this hackathon.')
+        }
+        throw new Error(error.message)
+      }
       
       setUserHasRequested(true)
     } catch (err) {

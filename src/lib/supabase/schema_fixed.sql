@@ -137,15 +137,12 @@ CREATE POLICY "Users can request to join teams" ON team_members
   FOR INSERT WITH CHECK (
     auth.uid() = user_id AND 
     NOT EXISTS (
-      SELECT 1 FROM team_members 
-      WHERE team_id IN (
-        SELECT id FROM teams 
-        WHERE hackathon_id = (
-          SELECT hackathon_id FROM teams WHERE id = team_members.team_id
-        )
-      ) 
-      AND user_id = auth.uid() 
-      AND is_approved = true
+      SELECT 1 FROM team_members tm
+      JOIN teams t1 ON tm.team_id = t1.id
+      JOIN teams t2 ON t2.id = team_members.team_id
+      WHERE tm.user_id = auth.uid() 
+        AND tm.is_approved = true
+        AND t1.hackathon_id = t2.hackathon_id
     )
   );
 

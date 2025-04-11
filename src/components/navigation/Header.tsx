@@ -12,6 +12,7 @@ export default function Header({ user }: { user: any }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isJudge, setIsJudge] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [pendingTeamRequests, setPendingTeamRequests] = useState(0)
   
   // Close menus when clicking outside
   useEffect(() => {
@@ -94,6 +95,58 @@ export default function Header({ user }: { user: any }) {
     checkAdminStatus()
   }, [user?.id])
   
+  // Check for pending team requests
+  useEffect(() => {
+    const checkPendingTeamRequests = async () => {
+      if (!user?.id) return
+      
+      try {
+        const supabase = createClient()
+        
+        // Get pending team requests where user has requested to join
+        const { data, error } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_approved', false)
+        
+        if (error) {
+          console.error('Error checking pending team requests:', error)
+          return
+        }
+        
+        setPendingTeamRequests(data?.length || 0)
+      } catch (err) {
+        console.error('Error checking pending team requests:', err)
+      }
+    }
+    
+    checkPendingTeamRequests()
+    
+    // Set up real-time subscription for team_members table
+    const supabase = createClient()
+    const teamMembersSubscription = supabase
+      .channel('table-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'team_members',
+          filter: `user_id=eq.${user?.id}`
+        }, 
+        () => {
+          // Refresh pending requests when changes occur
+          checkPendingTeamRequests()
+        }
+      )
+      .subscribe()
+    
+    // Cleanup subscription
+    return () => {
+      supabase.removeChannel(teamMembersSubscription)
+    }
+  }, [user?.id])
+  
   const handleSignOut = async () => {
     try {
       const supabase = createClient()
@@ -153,7 +206,14 @@ export default function Header({ user }: { user: any }) {
                 href="/teams" 
                 className={getLinkClassName('/teams')}
               >
-                Teams
+                <div className="relative flex items-center">
+                  Teams
+                  {pendingTeamRequests > 0 && (
+                    <span className="ml-2 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-100 text-xs font-medium text-yellow-800">
+                      {pendingTeamRequests}
+                    </span>
+                  )}
+                </div>
               </Link>
               <Link 
                 href="/projects" 
@@ -275,7 +335,14 @@ export default function Header({ user }: { user: any }) {
             className={getMobileLinkClassName('/teams')}
             onClick={() => setIsMenuOpen(false)}
           >
-            Teams
+            <div className="flex items-center">
+              Teams
+              {pendingTeamRequests > 0 && (
+                <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-100 text-xs font-medium text-yellow-800">
+                  {pendingTeamRequests}
+                </span>
+              )}
+            </div>
           </Link>
           <Link 
             href="/projects" 
