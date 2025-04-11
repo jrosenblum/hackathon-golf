@@ -392,7 +392,21 @@ export default function TeamDetailPage() {
             {isActiveHackathon ? 'Participating in active hackathon' : 'Part of a previous hackathon'}
           </p>
         </div>
-        <div className="mt-4 md:mt-0">
+        <div className="mt-4 md:mt-0 flex space-x-3">
+          {/* Show Edit button only to team leaders */}
+          {userIsMember && members.some(m => 
+            m.user_id === currentUser?.id && m.is_leader && m.is_approved
+          ) && (
+            <Link
+              href={`/teams/${teamId}/edit`}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              <svg className="mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+              Edit Team
+            </Link>
+          )}
           <Link
             href="/teams"
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -446,11 +460,15 @@ export default function TeamDetailPage() {
               
               <div className="flex justify-between items-center text-sm text-gray-500">
                 <span>Created on {formattedJoinDate}</span>
-                <span>
-                  {team.looking_for_members 
-                    ? 'Open to new members' 
-                    : 'Not looking for members'}
-                </span>
+                {team.looking_for_members ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Open to new members
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    Not looking for members
+                  </span>
+                )}
               </div>
             </div>
           </div>
