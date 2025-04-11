@@ -8,7 +8,7 @@ export default function LoginPage() {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900">Hackathon Platform</h2>
           <p className="mt-2 text-gray-600">
-            Sign in to participate in the company hackathon
+            Sign in to participate in the Internet Brands Hackathon
           </p>
         </div>
       </div>
@@ -32,8 +32,8 @@ export default function LoginPage() {
             <div className="mt-6 text-center text-sm">
               <p className="text-gray-600">
                 If you&apos;re having trouble signing in, please contact the hackathon organizers at{' '}
-                <a href="mailto:hackathon@company.com" className="font-medium text-blue-600 hover:text-blue-500">
-                  hackathon@company.com
+                <a href="mailto:hackathon@internetbrands.com" className="font-medium text-blue-600 hover:text-blue-500">
+                  hackathon@internetbrands.com
                 </a>
               </p>
             </div>

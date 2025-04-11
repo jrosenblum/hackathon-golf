@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRedirectUrl } from '@/lib/utils'
+import { isAllowedEmailDomain, ALLOWED_EMAIL_DOMAINS } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +11,25 @@ export async function GET(request: NextRequest) {
     if (code) {
       const supabase = await createClient()
       await supabase.auth.exchangeCodeForSession(code)
+      
+      // Check if the user's email domain is allowed
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (session?.user) {
+        const userEmail = session.user.email
+        
+        // If the email doesn't belong to an allowed domain, sign them out
+        if (userEmail && !isAllowedEmailDomain(userEmail)) {
+          console.log(`Unauthorized email domain: ${userEmail.split('@')[1]}`)
+          
+          // Sign the user out
+          await supabase.auth.signOut()
+          
+          // Create a URL for the unauthorized page
+          const unauthorizedUrl = createRedirectUrl('/login?error=unauthorized_domain', request)
+          return NextResponse.redirect(unauthorizedUrl)
+        }
+      }
     }
 
     // Log information for debugging

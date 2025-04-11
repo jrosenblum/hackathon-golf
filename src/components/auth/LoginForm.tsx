@@ -23,6 +23,20 @@ export default function LoginForm() {
     
     // Log for debugging
     console.log('Auth redirect URL set to:', currentUrl);
+    
+    // Check for error parameters in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const errorParam = urlParams.get('error');
+    
+    if (errorParam === 'unauthorized_domain') {
+      // Dynamically import to get the allowed domains list
+      import('@/lib/auth').then(({ ALLOWED_EMAIL_DOMAINS }) => {
+        setError(`You must use a company email address to log in. Allowed domains: ${ALLOWED_EMAIL_DOMAINS.join(', ')}`);
+      }).catch(err => {
+        console.error('Error importing allowed domains:', err);
+        setError('You must use a company email address to log in.');
+      });
+    }
   }, []);
 
   const handleGoogleLogin = async () => {
@@ -67,6 +81,19 @@ export default function LoginForm() {
       return
     }
     
+    // Check if email domain is allowed - import isAllowedEmailDomain at the top
+    try {
+      // Import dynamically to avoid SSR issues
+      const { isAllowedEmailDomain, ALLOWED_EMAIL_DOMAINS } = await import('@/lib/auth')
+      
+      if (!isAllowedEmailDomain(email)) {
+        setError(`You must use a company email address to log in. Allowed domains: ${ALLOWED_EMAIL_DOMAINS.join(', ')}`)
+        return
+      }
+    } catch (error) {
+      console.error('Error checking email domain:', error)
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -97,6 +124,19 @@ export default function LoginForm() {
     if (!email || !password) {
       setError('Email and password are required')
       return
+    }
+    
+    // Check if email domain is allowed
+    try {
+      // Import dynamically to avoid SSR issues
+      const { isAllowedEmailDomain, ALLOWED_EMAIL_DOMAINS } = await import('@/lib/auth')
+      
+      if (!isAllowedEmailDomain(email)) {
+        setError(`You must use a company email address to sign up. Allowed domains: ${ALLOWED_EMAIL_DOMAINS.join(', ')}`)
+        return
+      }
+    } catch (error) {
+      console.error('Error checking email domain:', error)
     }
     
     try {
@@ -171,6 +211,9 @@ export default function LoginForm() {
               className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
           </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Must be a company email address (@internetbrands.com, @webmd.com, etc.)
+          </p>
         </div>
 
         <div>

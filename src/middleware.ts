@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createRedirectUrl } from '@/lib/utils'
+import { isAllowedEmailDomain } from '@/lib/auth'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -26,6 +27,21 @@ export async function middleware(request: NextRequest) {
       const loginUrl = createRedirectUrl('/login', request)
       console.log('Redirecting to login:', loginUrl.toString())
       return NextResponse.redirect(loginUrl)
+    }
+    
+    // If user is authenticated, verify their email domain is allowed
+    if (session?.user?.email) {
+      const userEmail = session.user.email
+      if (!isAllowedEmailDomain(userEmail)) {
+        console.log(`Unauthorized email domain detected in middleware: ${userEmail.split('@')[1]}`)
+        
+        // Sign the user out
+        await supabase.auth.signOut()
+        
+        // Redirect to login with error message
+        const unauthorizedUrl = createRedirectUrl('/login?error=unauthorized_domain', request)
+        return NextResponse.redirect(unauthorizedUrl)
+      }
     }
 
     // Admin route protection

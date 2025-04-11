@@ -109,7 +109,7 @@ export default function TermsOfServicePage() {
             
             <h2 className="text-xl font-semibold mt-6 mb-3">12. Contact Information</h2>
             <p>
-              If you have any questions about these Terms, please contact us at: terms@hackathonplatform.com
+              If you have any questions about these Terms, please contact us at: terms@internetbrands.com
             </p>
           </div>
         </div>

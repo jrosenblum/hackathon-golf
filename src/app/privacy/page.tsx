@@ -88,7 +88,7 @@ export default function PrivacyPolicyPage() {
             
             <h2 className="text-xl font-semibold mt-6 mb-3">Contact Information</h2>
             <p>
-              To ask questions or comment about this privacy policy and our privacy practices, contact us at: privacy@hackathonplatform.com
+              To ask questions or comment about this privacy policy and our privacy practices, contact us at: privacy@internetbrands.com
             </p>
           </div>
         </div>
