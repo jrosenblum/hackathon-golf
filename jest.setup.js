@@ -1,15 +1,26 @@
 // Import jest-dom utilities
 import '@testing-library/jest-dom';
 
-// Suppress act() warnings temporarily while developing tests
+// Suppress act() warnings and error logging during tests
 const originalError = console.error;
 console.error = (...args) => {
   // Suppress React act() warnings
-  if (args[0] && typeof args[0] === 'string' && args[0].includes('Warning: An update to')) {
-    if (args[0].includes('inside a test was not wrapped in act(...)')) {
+  if (args[0] && typeof args[0] === 'string') {
+    // Skip act() warnings
+    if (args[0].includes('Warning: An update to') && 
+        args[0].includes('inside a test was not wrapped in act(...)')) {
+      return;
+    }
+    
+    // Skip expected errors during testing
+    if (args[0].includes('Error fetching team data:') || 
+        args[0].includes('Error checking judge status:') ||
+        args[0].includes('Error checking admin status:') ||
+        args[0].includes('Error checking pending team requests:')) {
       return;
     }
   }
+  
   // Pass other errors through
   originalError(...args);
 };
@@ -67,6 +78,14 @@ jest.mock('@/lib/supabase/client', () => {
     maybeSingle: mockMaybeSingle,
     single: mockSingle
   });
+  
+  // Make sure eq can be chained multiple times
+  mockEq.mockImplementation(() => ({
+    eq: mockEq,
+    limit: mockLimit,
+    maybeSingle: mockMaybeSingle,
+    single: mockSingle
+  }));
   
   mockLimit.mockResolvedValue({ data: [], error: null });
   
