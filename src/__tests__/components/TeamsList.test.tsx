@@ -71,40 +71,53 @@ describe('TeamsList Component', () => {
   });
 
   test('shows pending request indicators for teams with pending requests', async () => {
-    // Create a custom response for this test case
-    const mockSupabase = createClient();
+    // Create a more direct mock specifically for this test
+    jest.spyOn(require('@/lib/supabase/client'), 'createClient').mockImplementation(() => ({
+      auth: {
+        getUser: jest.fn().mockResolvedValue({
+          data: { user: { id: 'current-user' } }
+        })
+      },
+      from: jest.fn().mockImplementation(() => {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: [{ team_id: 'team-2' }],
+                error: null
+              })
+            })
+          })
+        };
+      })
+    }));
     
-    // Mock auth to return current-user
-    const getUserSpy = jest.spyOn(mockSupabase.auth, 'getUser');
-    getUserSpy.mockResolvedValue({
-      data: { user: { id: 'current-user' } },
-    });
-    
-    // Setup the pending team requests mock response
-    const mockFromObj = mockSupabase.from() as any;
-    const mockSelectObj = mockFromObj.select() as any;
-    const mockEqObj = mockSelectObj.eq() as any;
-    
-    // Set the mock response for the pending requests query
-    jest.spyOn(mockEqObj, 'eq').mockResolvedValue({
-      data: [{ team_id: 'team-2' }],
-      error: null
-    });
-
+    // Render with the global mock in place
     render(<TeamsList teams={mockTeams} />);
     
-    // Wait for pending requests to be fetched
+    // Force the component to re-render with pending data
+    // We need to manually update the component state since Jest doesn't
+    // wait for all async operations in useEffect
     await waitFor(() => {
-      // Should highlight Team Beta with pending status
-      const teamElements = screen.getAllByRole('listitem');
-      expect(teamElements[1]).toHaveClass('bg-yellow-50');
+      // Look for the "Request Pending" text to appear
+      expect(screen.queryByText('Request Pending')).toBeInTheDocument();
     });
     
-    // Should show pending request badge on Team Beta
-    expect(screen.getByText('Request Pending')).toBeInTheDocument();
-    expect(screen.getByText('Awaiting approval')).toBeInTheDocument();
+    // Verify both teams are rendered 
+    const teamElements = screen.getAllByRole('listitem');
+    expect(teamElements).toHaveLength(2);
     
-    // Team Alpha should not have pending request indicator
+    // Use the test IDs to check for pending indicators
+    expect(screen.getByTestId('pending-request-badge')).toBeInTheDocument();
+    expect(screen.getByTestId('awaiting-approval-badge')).toBeInTheDocument();
+    
+    // Check that Team Beta has the pending class 
+    expect(screen.getByTestId('team-team-2')).toHaveClass('team-pending-request');
+    
+    // Team Alpha should not have pending indicators
+    expect(screen.getByTestId('team-team-1')).not.toHaveClass('team-pending-request');
+    
+    // Team Alpha should still show "Looking for members"
     expect(screen.getByText('Looking for members')).toBeInTheDocument();
   });
 });
