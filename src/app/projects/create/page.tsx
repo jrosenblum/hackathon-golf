@@ -159,8 +159,7 @@ export default function CreateProjectPage() {
           video_url: videoUrl || null,
           resources_url: resourcesUrl || null,
           is_submitted: true,
-          submission_date: new Date().toISOString(),
-          submitted_by: user.id
+          submission_date: new Date().toISOString()
         })
         .select()
       

@@ -317,21 +317,40 @@ export default function TeamDetailPage() {
       setError(null)
       const supabase = createClient()
       
-      // Update the team member record to make them a leader
-      const { error } = await supabase
+      // Get the team ID from the member being promoted
+      const memberToPromote = members.find(m => m.id === memberId)
+      if (!memberToPromote) throw new Error("Member not found")
+      
+      // First, demote the current leader (the person making this change)
+      const { error: demoteError } = await supabase
+        .from('team_members')
+        .update({ is_leader: false })
+        .eq('user_id', currentUser.id)
+        .eq('team_id', teamId)
+      
+      if (demoteError) throw new Error(demoteError.message)
+      
+      // Then, promote the new leader
+      const { error: promoteError } = await supabase
         .from('team_members')
         .update({ is_leader: true })
         .eq('id', memberId)
         
-      if (error) throw new Error(error.message)
+      if (promoteError) throw new Error(promoteError.message)
       
-      // Update the local state to reflect the change
+      // Update the local state to reflect both changes
       setMembers(prevMembers => 
-        prevMembers.map(member => 
-          member.id === memberId 
-            ? { ...member, is_leader: true } 
-            : member
-        )
+        prevMembers.map(member => {
+          if (member.id === memberId) {
+            // Promote the selected member
+            return { ...member, is_leader: true }
+          } else if (member.user_id === currentUser.id) {
+            // Demote the current user
+            return { ...member, is_leader: false }
+          } else {
+            return member
+          }
+        })
       )
       
     } catch (err) {

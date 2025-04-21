@@ -6,10 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function TeamsList({ teams }: { teams: any[] }) {
   const [pendingTeamIds, setPendingTeamIds] = useState<string[]>([])
+  const [memberTeamIds, setMemberTeamIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   
   useEffect(() => {
-    const fetchPendingRequests = async () => {
+    const fetchUserTeamStatus = async () => {
       try {
         setIsLoading(true)
         const supabase = createClient()
@@ -29,17 +30,27 @@ export default function TeamsList({ teams }: { teams: any[] }) {
           .eq('user_id', user.id)
           .eq('is_approved', false)
         
-        // Extract team IDs into an array
+        // Get all teams where the user is an approved member
+        const { data: approvedTeams } = await supabase
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', user.id)
+          .eq('is_approved', true)
+        
+        // Extract team IDs into arrays
         const pendingIds = pendingRequests?.map(request => request.team_id) || []
+        const memberIds = approvedTeams?.map(team => team.team_id) || []
+        
         setPendingTeamIds(pendingIds)
+        setMemberTeamIds(memberIds)
       } catch (error) {
-        console.error('Error fetching pending team requests:', error)
+        console.error('Error fetching user team status:', error)
       } finally {
         setIsLoading(false)
       }
     }
     
-    fetchPendingRequests()
+    fetchUserTeamStatus()
   }, [])
   
   if (teams.length === 0) {
@@ -68,14 +79,25 @@ export default function TeamsList({ teams }: { teams: any[] }) {
         {teams.map((team: any) => {
           const memberCount = team.team_members?.filter((m: any) => m.is_approved).length || 0
           const isPendingRequest = pendingTeamIds.includes(team.id)
+          const isUserMember = memberTeamIds.includes(team.id)
+          
+          // Set appropriate background based on status
+          let bgClass = "hover:bg-gray-50"
+          if (isUserMember) bgClass = "bg-green-50 hover:bg-green-100"
+          else if (isPendingRequest) bgClass = "bg-yellow-50 hover:bg-yellow-100"
           
           return (
-            <li key={team.id} className={`hover:bg-gray-50 ${isPendingRequest ? 'bg-yellow-50 team-pending-request' : ''}`} data-testid={`team-${team.id}`}>
+            <li key={team.id} className={bgClass} data-testid={`team-${team.id}`}>
               <Link href={`/teams/${team.id}`} className="block p-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center">
                       <h2 className="text-xl font-semibold text-blue-600 mb-1">{team.name}</h2>
+                      {isUserMember && (
+                        <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800" data-testid="your-team-badge">
+                          Your Team
+                        </span>
+                      )}
                       {isPendingRequest && (
                         <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" data-testid="pending-request-badge">
                           Request Pending
@@ -102,7 +124,12 @@ export default function TeamsList({ teams }: { teams: any[] }) {
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-2">
                       {memberCount} member{memberCount !== 1 ? 's' : ''}
                     </span>
-                    {team.looking_for_members && !isPendingRequest && (
+                    {isUserMember && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        You are a member
+                      </span>
+                    )}
+                    {team.looking_for_members && !isPendingRequest && !isUserMember && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         Looking for members
                       </span>
