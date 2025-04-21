@@ -59,45 +59,87 @@ export default function ProfilePage() {
           setAvatarUrl(profile.avatar_url || '')
         }
         
-        // Get user's teams information
-        const { data: teamMemberships, error: teamsError } = await supabase
-          .from('team_members')
-          .select(`
-            id,
-            is_leader,
-            is_approved,
-            teams (
+        try {
+          // Get user's teams using a simpler query first
+          const { data: teamMemberships, error: teamsError } = await supabase
+            .from('team_members')
+            .select(`
               id,
-              name,
-              description,
-              hackathon_id,
-              hackathons (
+              is_leader,
+              is_approved,
+              team_id
+            `)
+            .eq('user_id', user.id)
+            .eq('is_approved', true)
+            
+          if (teamsError) throw teamsError
+          
+          if (!teamMemberships || teamMemberships.length === 0) {
+            // No teams found
+            setUserTeams([])
+          } else {
+            // Get team details separately to avoid nested query issues
+            const teamIds = teamMemberships.map(tm => tm.team_id)
+            
+            const { data: teams, error: teamDetailsError } = await supabase
+              .from('teams')
+              .select(`
                 id,
-                title,
-                is_active
-              )
-            )
-          `)
-          .eq('user_id', user.id)
-          .eq('is_approved', true)
-          .order('created_at', { ascending: false })
-        
-        if (teamsError) throw teamsError
-        
-        // Process the teams data to make it more usable
-        const formattedTeams = teamMemberships?.map(membership => ({
-          id: membership.id,
-          teamId: membership.teams.id,
-          name: membership.teams.name,
-          description: membership.teams.description,
-          isLeader: membership.is_leader,
-          isApproved: membership.is_approved,
-          hackathonId: membership.teams.hackathon_id,
-          hackathonTitle: membership.teams.hackathons?.title || 'Unknown Hackathon',
-          isActiveHackathon: membership.teams.hackathons?.is_active || false
-        })) || []
-        
-        setUserTeams(formattedTeams)
+                name,
+                description,
+                hackathon_id
+              `)
+              .in('id', teamIds)
+              
+            if (teamDetailsError) throw teamDetailsError
+            
+            // Get hackathon details separately
+            const hackathonIds = teams?.map(team => team.hackathon_id).filter(Boolean) || []
+            
+            let hackathons = []
+            if (hackathonIds.length > 0) {
+              const { data: hackathonData, error: hackathonError } = await supabase
+                .from('hackathons')
+                .select('id, title, is_active')
+                .in('id', hackathonIds)
+                
+              if (hackathonError) throw hackathonError
+              hackathons = hackathonData || []
+            }
+            
+            // Now combine all the data
+            const formattedTeams = teamMemberships.map(membership => {
+              const team = teams?.find(t => t.id === membership.team_id) || { 
+                name: 'Unknown Team', 
+                description: '',
+                hackathon_id: null 
+              }
+              
+              const hackathon = hackathons.find(h => h.id === team.hackathon_id) || {
+                title: 'Unknown Hackathon',
+                is_active: false
+              }
+              
+              return {
+                id: membership.id,
+                teamId: membership.team_id,
+                name: team.name,
+                description: team.description || '',
+                isLeader: membership.is_leader,
+                isApproved: membership.is_approved,
+                hackathonId: team.hackathon_id,
+                hackathonTitle: hackathon.title,
+                isActiveHackathon: hackathon.is_active
+              }
+            })
+            
+            setUserTeams(formattedTeams)
+          }
+        } catch (teamError) {
+          console.error('Error loading teams:', teamError)
+          // Continue with profile even if teams fail to load
+          setUserTeams([])
+        }
       } catch (error) {
         console.error('Error loading profile:', error)
         setError('Could not load profile')
