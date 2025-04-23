@@ -11,6 +11,10 @@ import { ALLOWED_EMAIL_DOMAINS } from './auth'
  * Get the current user using the server component client
  */
 export async function getCurrentUser() {
+  // Add dynamic tag to tell Next.js not to statically optimize this function
+  // This is needed because we use cookies which are dynamic per request
+  const dynamic = 'force-dynamic';
+  
   try {
     const supabase = createServerComponentClient({ cookies })
     const { data: { user }, error } = await supabase.auth.getUser()

@@ -1,6 +1,9 @@
 import { getCurrentUser } from '@/lib/auth.server'
 import { redirect } from 'next/navigation'
 
+// Tell Next.js this layout is dynamic and can't be statically generated
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
   children,
 }: {

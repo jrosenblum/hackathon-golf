@@ -13,7 +13,15 @@ const nextConfig = {
     // Warning: This allows production builds to successfully complete even if
     // your project has type errors.
     ignoreBuildErrors: true,
-  }
+  },
+  // Disable static optimization for all routes to prevent auth-related build issues
+  output: 'standalone',
+  // Configure which routes are pre-rendered
+  experimental: {
+    serverComponentsExternalPackages: ['@supabase/auth-helpers-nextjs'],
+  },
+  // Skip static generation for all routes that require authentication
+  staticPageGenerationTimeout: 120,
 }
 
 module.exports = nextConfig

@@ -4,6 +4,9 @@ import { cookies } from 'next/headers'
 import { createRedirectUrl } from '@/lib/utils'
 import { isAllowedEmailDomain } from '@/lib/auth.domains'
 
+// This route needs to be dynamic
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const requestUrl = new URL(request.url)
