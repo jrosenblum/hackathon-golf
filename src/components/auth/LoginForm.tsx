@@ -41,32 +41,26 @@ export default function LoginForm() {
 
   const handleGoogleLogin = async () => {
     try {
-      // Check if we have a redirect URL before proceeding
-      if (!redirectUrl) {
-        console.error('No redirect URL set for auth, using fallback');
-      }
-      
       setLoading(true)
       setError(null)
       setLoginMethod('google')
       
       const supabase = createClient()
       
-      // Use the current origin for the redirect, ensuring it works in any environment
-      const currentRedirectUrl = redirectUrl || authConfig.getRedirectUrl();
-      
-      console.log('Authenticating with redirect to:', currentRedirectUrl);
+      // Use the current origin for the redirect
+      const redirectUrl = new URL('/auth/callback', window.location.origin).toString()
+      console.log('Authenticating with redirect to:', redirectUrl)
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: currentRedirectUrl,
+          redirectTo: redirectUrl,
         },
       })
       
       if (error) throw error
     } catch (error: any) {
-      console.error('Authentication error:', error);
+      console.error('Authentication error:', error)
       setError(error.message || 'An error occurred during login')
     } finally {
       setLoading(false)

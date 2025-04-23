@@ -9,11 +9,19 @@
     },
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": {
       "description": "The anon key of your Supabase project"
+    },
+    "NEXT_PUBLIC_SITE_URL": {
+      "description": "The public URL of the app"
+    },
+    "NODE_ENV": {
+      "description": "Environment",
+      "value": "production"
     }
   },
   "buildpacks": [
     {
       "url": "heroku/nodejs"
     }
-  ]
+  ],
+  "stack": "heroku-24"
 }

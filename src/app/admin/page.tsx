@@ -47,6 +47,7 @@ async function getAdminStats() {
 }
 
 export default async function AdminPage() {
+  // Admin check is now bypassed in the checkIsAdmin function itself
   await checkIsAdmin()
   const stats = await getAdminStats()
   

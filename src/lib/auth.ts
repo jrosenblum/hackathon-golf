@@ -3,6 +3,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createBrowserClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 
 /**
@@ -10,14 +11,21 @@ import { redirect } from 'next/navigation'
  * This is more secure than getSession() as it authenticates data with the Supabase Auth server
  */
 export async function getCurrentUser() {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  
-  if (error || !user) {
+  try {
+    // Use in a try/catch since we can't pass cookies directly in this context
+    // but the client should still work with the environment cookies
+    const supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error || !user) {
+      return null
+    }
+    
+    return user
+  } catch (error) {
+    console.error('Error in getCurrentUser:', error)
     return null
   }
-  
-  return user
 }
 
 /**

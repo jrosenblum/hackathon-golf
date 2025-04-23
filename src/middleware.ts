@@ -1,46 +1,99 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { createRedirectUrl } from '@/lib/utils'
 import { isAllowedEmailDomain } from '@/lib/auth'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  console.log('[DEBUG-MW] Middleware running for path:', pathname)
+  
+  // Log cookies in middleware
+  console.log('[DEBUG-MW] Cookies in middleware:', Array.from(request.cookies.getAll()).map(c => c.name))
+  
+  // No special bypasses needed anymore - all routes should work properly now
   
   // Public routes that don't require authentication
-  const publicRoutes = ['/', '/login', '/auth/callback']
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
+  const publicRoutes = ['/', '/login', '/auth/callback', '/debug', '/api/auth-check']
+  const isPublicRoute = publicRoutes.some(route => pathname === route || (route !== '/' && pathname.startsWith(route)))
+  
+  if (isPublicRoute) {
+    console.log('[DEBUG-MW] Public route, skipping auth check')
     return NextResponse.next()
   }
 
   try {
-    // Create a Supabase client
-    const supabase = await createClient()
+    console.log('[DEBUG-MW] Protected route, checking auth')
+    
+    // Create a new response to modify
+    let response = NextResponse.next()
+    
+    // Create a Supabase client with cookie access - this is most reliable for middleware
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name) {
+            return request.cookies.get(name)?.value
+          },
+          set(name, value, options) {
+            // This is used for the middleware response
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+          },
+          remove(name, options) {
+            response.cookies.set({
+              name,
+              value: '',
+              ...options,
+              maxAge: 0,
+            })
+          },
+        },
+      }
+    )
 
-    // Check if user is authenticated using getUser instead of getSession
+    // Check if user is authenticated using getUser
+    console.log('[DEBUG-MW] Calling getUser()')
     const { data: { user }, error: userError } = await supabase.auth.getUser()
+    console.log('[DEBUG-MW] User auth result:',
+      user ? `User authenticated: ${user.id}` : 'No user found',
+      userError ? `Error: ${userError.message}` : 'No error'
+    )
 
     // If there's no authenticated user and the user is accessing a protected route, redirect to the login page
     if ((!user || userError) && !publicRoutes.some(route => pathname.startsWith(route))) {
       // Use our utility to ensure the redirect uses the proper origin
       // Pass the entire request object to access headers
       const loginUrl = createRedirectUrl('/login', request)
-      console.log('Redirecting to login:', loginUrl.toString())
-      return NextResponse.redirect(loginUrl)
+      console.log('[DEBUG-MW] Redirecting to login:', loginUrl.toString())
+      
+      // Create a new redirect response
+      response = NextResponse.redirect(loginUrl)
+      
+      // Add a debug cookie to track redirects
+      response.cookies.set('auth_redirect_debug', new Date().toISOString())
+      
+      return response
     }
     
     // If user is authenticated, verify their email domain is allowed
     if (user?.email) {
       const userEmail = user.email
       if (!isAllowedEmailDomain(userEmail)) {
-        console.log(`Unauthorized email domain detected in middleware: ${userEmail.split('@')[1]}`)
+        console.log(`[DEBUG-MW] Unauthorized email domain: ${userEmail.split('@')[1]}`)
         
         // Sign the user out
         await supabase.auth.signOut()
         
         // Redirect to login with error message
         const unauthorizedUrl = createRedirectUrl('/login?error=unauthorized_domain', request)
-        return NextResponse.redirect(unauthorizedUrl)
+        response = NextResponse.redirect(unauthorizedUrl)
+        return response
       }
     }
 
@@ -49,7 +102,8 @@ export async function middleware(request: NextRequest) {
       // Check if we have a user first
       if (!user) {
         const loginUrl = createRedirectUrl('/login', request)
-        return NextResponse.redirect(loginUrl)
+        response = NextResponse.redirect(loginUrl)
+        return response
       }
       
       // Verify admin status in the profile table (not from user metadata)
@@ -62,14 +116,21 @@ export async function middleware(request: NextRequest) {
       if (!profile?.is_admin) {
         // Use our utility to ensure the redirect uses the proper origin
         const dashboardUrl = createRedirectUrl('/dashboard', request)
-        console.log('Redirecting to dashboard (not admin):', dashboardUrl.toString())
-        return NextResponse.redirect(dashboardUrl)
+        console.log('[DEBUG-MW] Redirecting to dashboard (not admin):', dashboardUrl.toString())
+        response = NextResponse.redirect(dashboardUrl)
+        return response
       }
     }
+    
+    // If we get here, user is authenticated and authorized
+    response.headers.set('X-Auth-Debug', 'auth-success')
+    
+    // Return the response that may have been modified by Supabase
+    return response
   } catch (error) {
-    console.error('Middleware error:', error)
+    console.error('[DEBUG-MW] Middleware error:', error)
+    
     // In case of any error, redirect to login
-    // Use our utility with a fallback to absolute URL
     try {
       const loginUrl = createRedirectUrl('/login', request)
       return NextResponse.redirect(loginUrl)
@@ -78,8 +139,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect('https://app.hackathon.golf/login')
     }
   }
-
-  return NextResponse.next()
 }
 
 export const config = {
@@ -90,7 +149,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - auth/callback (to prevent redirect loops in the authentication flow)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

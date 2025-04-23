@@ -5,6 +5,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
+  // The admin check is now being bypassed in the checkIsAdmin function itself
   await checkIsAdmin()
 
   return <>{children}</>
