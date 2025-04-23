@@ -23,6 +23,7 @@ export const ALLOWED_EMAIL_DOMAINS = [
   'mnghealth.com',
   'coliquio.de',
   'gruposaned.com',
+  'goacegroup.com',
   'ngagelive.com',
   'staywell.com',
   'premierdisability.com',
