@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
-import { checkIsAdmin } from '@/lib/auth'
+import { checkIsAdmin } from '@/lib/auth.server'
 
 async function getHackathon(id: string) {
   const supabase = await createClient()
@@ -74,6 +74,9 @@ async function getSubmittedProjects(hackathonId: string) {
   
   return projects || []
 }
+
+// Tell Next.js this page is dynamic and can't be statically generated
+export const dynamic = 'force-dynamic';
 
 export default async function HackathonSubmissionsPage({ params }: { params: { id: string } }) {
   await checkIsAdmin()

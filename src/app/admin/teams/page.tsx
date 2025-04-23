@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import MainLayout from '@/components/layout/MainLayout'
-import { checkIsAdmin } from '@/lib/auth'
+import { checkIsAdmin } from '@/lib/auth.server'
 
 async function getTeams() {
   const supabase = await createClient()
@@ -26,6 +26,9 @@ async function getTeams() {
     member_count: team.team_members?.length || 0
   }))
 }
+
+// Tell Next.js this page is dynamic and can't be statically generated
+export const dynamic = 'force-dynamic';
 
 export default async function TeamsPage() {
   await checkIsAdmin()

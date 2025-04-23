@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import MainLayout from '@/components/layout/MainLayout'
-import { checkIsAdmin } from '@/lib/auth'
+import { checkIsAdmin } from '@/lib/auth.server'
 
 async function getProjects() {
   const supabase = await createClient()
@@ -29,6 +29,9 @@ async function getProjects() {
     hackathon_title: project.teams?.hackathons?.title || 'No Hackathon'
   }))
 }
+
+// Tell Next.js this page is dynamic and can't be statically generated
+export const dynamic = 'force-dynamic';
 
 export default async function ProjectsPage() {
   await checkIsAdmin()

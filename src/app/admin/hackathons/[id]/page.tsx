@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { checkIsAdmin } from '@/lib/auth'
+import { checkIsAdmin } from '@/lib/auth.server'
 
 async function getHackathon(id: string) {
   try {
@@ -96,6 +96,9 @@ async function getHackathon(id: string) {
     throw error // Re-throw to be handled by the calling function
   }
 }
+
+// Tell Next.js this page is dynamic and can't be statically generated
+export const dynamic = 'force-dynamic';
 
 export default async function HackathonDetailPage({ params }: { params: { id: string } }) {
   // Make sure params is properly awaited by declaring it at the top

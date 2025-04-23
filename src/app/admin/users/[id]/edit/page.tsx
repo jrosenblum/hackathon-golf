@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 import UserAdminControls from '@/components/admin/UserAdminControls'
-import { checkIsAdmin } from '@/lib/auth'
+import { checkIsAdmin } from '@/lib/auth.server'
 
 async function getUser(id: string) {
   const supabase = await createClient()
@@ -21,6 +21,9 @@ async function getUser(id: string) {
   
   return data
 }
+
+// Tell Next.js this page is dynamic and can't be statically generated
+export const dynamic = 'force-dynamic';
 
 export default async function EditUserPage({ params }: { params: { id: string } }) {
   await checkIsAdmin()
