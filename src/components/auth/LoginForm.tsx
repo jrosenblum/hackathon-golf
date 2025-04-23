@@ -51,14 +51,29 @@ export default function LoginForm() {
       const redirectUrl = new URL('/auth/callback', window.location.origin).toString()
       console.log('Authenticating with redirect to:', redirectUrl)
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          // Set these options explicitly for auth flow
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          // Use better defaults for cookie handling
+          skipBrowserRedirect: false,
         },
       })
       
+      console.log('OAuth response:', data)
+      
       if (error) throw error
+      
+      // The auth library should handle the redirect automatically, but in case it doesn't:
+      if (data?.url) {
+        console.log('Manual redirect to:', data.url)
+        window.location.href = data.url
+      }
     } catch (error: any) {
       console.error('Authentication error:', error)
       setError(error.message || 'An error occurred during login')

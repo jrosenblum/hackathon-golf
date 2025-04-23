@@ -1,22 +1,18 @@
 /**
- * Authentication utilities
+ * Server-side authentication utilities
  */
 
-// Mark this file as safe to use in client components
-'use client'
-
-import { createClient } from '@/lib/supabase/client'
+import { cookies } from 'next/headers'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { redirect } from 'next/navigation'
+import { ALLOWED_EMAIL_DOMAINS } from './auth'
 
 /**
- * Get the current user using the secure getUser() method
- * This is more secure than getSession() as it authenticates data with the Supabase Auth server
+ * Get the current user using the server component client
  */
 export async function getCurrentUser() {
   try {
-    // Use in a try/catch since we can't pass cookies directly in this context
-    // but the client should still work with the environment cookies
-    const supabase = await createClient()
+    const supabase = createServerComponentClient({ cookies })
     const { data: { user }, error } = await supabase.auth.getUser()
     
     if (error || !user) {
@@ -25,7 +21,7 @@ export async function getCurrentUser() {
     
     return user
   } catch (error) {
-    console.error('Error in getCurrentUser:', error)
+    console.error('Error in server getCurrentUser:', error)
     return null
   }
 }
@@ -41,7 +37,7 @@ export async function getUserProfile() {
     return null
   }
   
-  const supabase = await createClient()
+  const supabase = createServerComponentClient({ cookies })
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
@@ -68,7 +64,7 @@ export async function checkIsAdmin() {
     redirect('/login')
   }
   
-  const supabase = await createClient()
+  const supabase = createServerComponentClient({ cookies })
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('is_admin')
@@ -81,9 +77,3 @@ export async function checkIsAdmin() {
   
   return true
 }
-
-// Import from the shared domains file
-import { ALLOWED_EMAIL_DOMAINS, isAllowedEmailDomain } from './auth.domains'
-
-// Re-export for convenience
-export { ALLOWED_EMAIL_DOMAINS, isAllowedEmailDomain }

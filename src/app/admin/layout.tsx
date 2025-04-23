@@ -1,4 +1,4 @@
-import { checkIsAdmin } from '@/lib/auth'
+import { checkIsAdmin } from '@/lib/auth.server'
 
 export default async function AdminLayout({
   children,

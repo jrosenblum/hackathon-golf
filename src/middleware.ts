@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { createRedirectUrl } from '@/lib/utils'
-import { isAllowedEmailDomain } from '@/lib/auth'
+import { isAllowedEmailDomain } from '@/lib/auth.domains'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -28,34 +28,11 @@ export async function middleware(request: NextRequest) {
     // Create a new response to modify
     let response = NextResponse.next()
     
-    // Create a Supabase client with cookie access - this is most reliable for middleware
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name) {
-            return request.cookies.get(name)?.value
-          },
-          set(name, value, options) {
-            // This is used for the middleware response
-            response.cookies.set({
-              name,
-              value,
-              ...options,
-            })
-          },
-          remove(name, options) {
-            response.cookies.set({
-              name,
-              value: '',
-              ...options,
-              maxAge: 0,
-            })
-          },
-        },
-      }
-    )
+    // Create a Supabase client with proper middleware integration
+    const supabase = createMiddlewareClient({ 
+      req: request, 
+      res: response 
+    })
 
     // Check if user is authenticated using getUser
     console.log('[DEBUG-MW] Calling getUser()')
