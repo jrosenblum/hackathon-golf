@@ -205,9 +205,7 @@ export default function JudgesPage() {
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{error}</p>
-                </div>
+                <p className="mt-2 text-sm text-red-700">{error}</p>
               </div>
             </div>
           </div>
@@ -223,9 +221,7 @@ export default function JudgesPage() {
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-green-800">Success</h3>
-                <div className="mt-2 text-sm text-green-700">
-                  <p>{successMessage}</p>
-                </div>
+                <p className="mt-2 text-sm text-green-700">{successMessage}</p>
               </div>
             </div>
           </div>

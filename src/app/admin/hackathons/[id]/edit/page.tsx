@@ -1,15 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { addDefaultCriteriaToHackathon } from '@/lib/judging'
 
-export default function CreateHackathonPage() {
+export default function EditHackathonPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   
   // Hackathon fields
   const [title, setTitle] = useState('')
@@ -23,6 +23,73 @@ export default function CreateHackathonPage() {
   const [judgingEnd, setJudgingEnd] = useState('')
   const [maxTeamSize, setMaxTeamSize] = useState('5')
   const [isActive, setIsActive] = useState(true)
+
+  // Format ISO date string to datetime-local input format
+  const formatDateForInput = (isoString: string) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toISOString().slice(0, 16); // Format as YYYY-MM-DDTHH:MM
+  };
+
+  // Load hackathon data
+  useEffect(() => {
+    const fetchHackathon = async () => {
+      try {
+        const supabase = createClient()
+        
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/login')
+          return
+        }
+        
+        // Check if user is admin
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single()
+        
+        if (profileError) throw new Error(profileError.message)
+        if (!profile?.is_admin) {
+          router.push('/dashboard')
+          return
+        }
+        
+        // Fetch hackathon data
+        const { data: hackathon, error: hackathonError } = await supabase
+          .from('hackathons')
+          .select('*')
+          .eq('id', params.id)
+          .single()
+        
+        if (hackathonError) throw new Error(hackathonError.message)
+        if (!hackathon) throw new Error('Hackathon not found')
+        
+        // Set form values from hackathon data
+        setTitle(hackathon.title || '')
+        setDescription(hackathon.description || '')
+        setStartDate(formatDateForInput(hackathon.start_date))
+        setEndDate(formatDateForInput(hackathon.end_date))
+        setRegistrationDeadline(formatDateForInput(hackathon.registration_deadline))
+        setTeamFormationDeadline(formatDateForInput(hackathon.team_formation_deadline))
+        setSubmissionDeadline(formatDateForInput(hackathon.submission_deadline))
+        setJudgingStart(formatDateForInput(hackathon.judging_start))
+        setJudgingEnd(formatDateForInput(hackathon.judging_end))
+        setMaxTeamSize(hackathon.max_team_size?.toString() || '5')
+        setIsActive(hackathon.is_active || false)
+        
+      } catch (error) {
+        console.error('Error fetching hackathon:', error)
+        setError(error instanceof Error ? error.message : 'An error occurred while loading the hackathon')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchHackathon()
+  }, [params.id, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,14 +111,12 @@ export default function CreateHackathonPage() {
         .single()
       
       if (profileError) throw new Error(profileError.message)
-      if (!profile?.is_admin) throw new Error('Only admins can create hackathons')
+      if (!profile?.is_admin) throw new Error('Only admins can edit hackathons')
       
-      // No longer need to deactivate other hackathons as we now support multiple active hackathons
-      
-      // Create hackathon
-      const { data: hackathonData, error: hackathonError } = await supabase
+      // Update hackathon
+      const { error: hackathonError } = await supabase
         .from('hackathons')
-        .insert({
+        .update({
           title,
           description,
           start_date: new Date(startDate).toISOString(),
@@ -64,25 +129,31 @@ export default function CreateHackathonPage() {
           max_team_size: parseInt(maxTeamSize),
           is_active: isActive
         })
-        .select('id')
+        .eq('id', params.id)
       
       if (hackathonError) throw new Error(hackathonError.message)
       
-      // Add default judging criteria if hackathon was created successfully
-      if (hackathonData && hackathonData.length > 0) {
-        const hackathonId = hackathonData[0].id;
-        await addDefaultCriteriaToHackathon(supabase, hackathonId);
-      }
-      
-      // Redirect to admin dashboard
-      router.push('/admin')
+      // Redirect to hackathon detail page
+      router.push(`/admin/hackathons/${params.id}`)
       router.refresh()
     } catch (error) {
-      console.error('Error creating hackathon:', error)
-      setError(error instanceof Error ? error.message : 'An error occurred while creating the hackathon')
+      console.error('Error updating hackathon:', error)
+      setError(error instanceof Error ? error.message : 'An error occurred while updating the hackathon')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-gray-100 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <p className="text-gray-500">Loading hackathon details...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -90,17 +161,17 @@ export default function CreateHackathonPage() {
       <div className="max-w-4xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Create New Hackathon</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Edit Hackathon</h1>
             <p className="mt-2 text-gray-600">
-              Set up a new hackathon event with all required details
+              Update hackathon details and settings
             </p>
           </div>
           <div className="mt-4 md:mt-0">
             <Link
-              href="/admin"
+              href={`/admin/hackathons/${params.id}`}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
-              Back to Admin
+              Back to Hackathon
             </Link>
           </div>
         </div>
@@ -114,7 +185,7 @@ export default function CreateHackathonPage() {
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">There was an error creating the hackathon</h3>
+                <h3 className="text-sm font-medium text-red-800">There was an error updating the hackathon</h3>
                 <p className="mt-2 text-sm text-red-700">{error}</p>
               </div>
             </div>
@@ -304,7 +375,7 @@ export default function CreateHackathonPage() {
                 className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Creating...' : 'Create Hackathon'}
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </form>

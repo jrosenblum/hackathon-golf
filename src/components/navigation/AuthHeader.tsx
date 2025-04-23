@@ -15,14 +15,14 @@ export default function AuthHeader() {
     async function loadUser() {
       try {
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user: authUser }, error } = await supabase.auth.getUser()
         
-        if (!session?.user) {
+        if (error || !authUser) {
           setLoading(false)
           return
         }
         
-        setUser(session.user)
+        setUser(authUser)
       } catch (error) {
         console.error('Error loading user:', error)
       } finally {
@@ -40,7 +40,12 @@ export default function AuthHeader() {
           setUser(null)
           router.push('/')
         } else if (session) {
-          setUser(session.user)
+          // Use getUser to validate session data
+          supabase.auth.getUser().then(({ data }) => {
+            if (data.user) {
+              setUser(data.user)
+            }
+          })
         }
       }
     )

@@ -17,11 +17,11 @@ export async function middleware(request: NextRequest) {
     // Create a Supabase client
     const supabase = await createClient()
 
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession()
+    // Check if user is authenticated using getUser instead of getSession
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    // If there's no session and the user is accessing a protected route, redirect to the login page
-    if (!session && !publicRoutes.some(route => pathname.startsWith(route))) {
+    // If there's no authenticated user and the user is accessing a protected route, redirect to the login page
+    if ((!user || userError) && !publicRoutes.some(route => pathname.startsWith(route))) {
       // Use our utility to ensure the redirect uses the proper origin
       // Pass the entire request object to access headers
       const loginUrl = createRedirectUrl('/login', request)
@@ -30,8 +30,8 @@ export async function middleware(request: NextRequest) {
     }
     
     // If user is authenticated, verify their email domain is allowed
-    if (session?.user?.email) {
-      const userEmail = session.user.email
+    if (user?.email) {
+      const userEmail = user.email
       if (!isAllowedEmailDomain(userEmail)) {
         console.log(`Unauthorized email domain detected in middleware: ${userEmail.split('@')[1]}`)
         
@@ -44,13 +44,27 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Admin route protection
-    if (pathname.startsWith('/admin') && !session?.user?.user_metadata?.isAdmin) {
-      // Use our utility to ensure the redirect uses the proper origin
-      // Pass the entire request object to access headers
-      const dashboardUrl = createRedirectUrl('/dashboard', request)
-      console.log('Redirecting to dashboard (not admin):', dashboardUrl.toString())
-      return NextResponse.redirect(dashboardUrl)
+    // Admin route protection for paths that start with /admin
+    if (pathname.startsWith('/admin')) {
+      // Check if we have a user first
+      if (!user) {
+        const loginUrl = createRedirectUrl('/login', request)
+        return NextResponse.redirect(loginUrl)
+      }
+      
+      // Verify admin status in the profile table (not from user metadata)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single()
+        
+      if (!profile?.is_admin) {
+        // Use our utility to ensure the redirect uses the proper origin
+        const dashboardUrl = createRedirectUrl('/dashboard', request)
+        console.log('Redirecting to dashboard (not admin):', dashboardUrl.toString())
+        return NextResponse.redirect(dashboardUrl)
+      }
     }
   } catch (error) {
     console.error('Middleware error:', error)

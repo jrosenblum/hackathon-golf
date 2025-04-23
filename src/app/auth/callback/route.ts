@@ -13,10 +13,10 @@ export async function GET(request: NextRequest) {
       await supabase.auth.exchangeCodeForSession(code)
       
       // Check if the user's email domain is allowed
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
       
-      if (session?.user) {
-        const userEmail = session.user.email
+      if (user) {
+        const userEmail = user.email
         
         // If the email doesn't belong to an allowed domain, sign them out
         if (userEmail && !isAllowedEmailDomain(userEmail)) {

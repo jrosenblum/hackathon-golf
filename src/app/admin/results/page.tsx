@@ -132,9 +132,7 @@ export default function HackathonResultsPage() {
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{error}</p>
-                </div>
+                <p className="mt-2 text-sm text-red-700">{error}</p>
               </div>
             </div>
           </div>

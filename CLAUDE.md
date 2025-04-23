@@ -30,3 +30,11 @@ npm run test:coverage             # Run tests with coverage
 - Tests should focus on behavior rather than implementation
 - Mock external dependencies (Supabase, Next.js router) in tests
 - Target 70% test coverage for critical paths
+
+## Security Guidelines
+- Never use NEXT_PUBLIC_* variables for sensitive operations
+- For admin operations, always use the server-side API routes in /api/admin/
+- Admin operations should use the secure admin client from @/lib/supabase/admin
+- The admin client requires SUPABASE_SERVICE_ROLE_KEY in server-side environment variables
+- Double-check permissions with server-side validation before sensitive operations
+- Client components should never directly update admin settings in the database

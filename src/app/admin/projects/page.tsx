@@ -1,28 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
-
-async function checkIsAdmin() {
-  const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  if (!session) {
-    redirect('/login')
-  }
-  
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', session.user.id)
-    .single()
-  
-  if (!profile?.is_admin) {
-    redirect('/dashboard')
-  }
-  
-  return true
-}
+import { checkIsAdmin } from '@/lib/auth'
 
 async function getProjects() {
   const supabase = await createClient()
