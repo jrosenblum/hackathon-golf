@@ -77,7 +77,9 @@ export default function TeamsList({ teams }: { teams: any[] }) {
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <ul className="divide-y divide-gray-200">
         {teams.map((team: any) => {
-          const memberCount = team.team_members?.filter((m: any) => m.is_approved).length || 0
+          // Make sure team_members is an array before filtering
+          const teamMembers = Array.isArray(team.team_members) ? team.team_members : [];
+          const memberCount = teamMembers.filter((m: any) => m.is_approved).length || 0
           const isPendingRequest = pendingTeamIds.includes(team.id)
           const isUserMember = memberTeamIds.includes(team.id)
           

@@ -15,7 +15,7 @@ async function getTeams() {
       needed_skills,
       created_at,
       profiles(full_name, email),
-      team_members(user_id, is_approved, is_leader)
+      team_members!inner(user_id, is_approved, is_leader)
     `)
     .eq('looking_for_members', true)
     .order('created_at', { ascending: false })
