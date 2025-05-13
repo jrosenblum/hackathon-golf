@@ -51,16 +51,19 @@ export default function LoginForm() {
       const redirectUrl = new URL('/auth/callback', window.location.origin).toString()
       console.log('Authenticating with redirect to:', redirectUrl)
       
+      // Add a session cookie to track the auth flow
+      document.cookie = `auth_flow_started=${Date.now()};path=/;max-age=300;SameSite=Lax`
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
-          // Set these options explicitly for auth flow
+          // Make sure we always get a fresh consent screen to avoid token issues
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
           },
-          // Use better defaults for cookie handling
+          // Let Supabase handle the redirect
           skipBrowserRedirect: false,
         },
       })

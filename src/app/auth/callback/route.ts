@@ -32,12 +32,32 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(errorUrl)
       }
       
-      // Get the user to check domain restrictions
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      // Get the user to check domain restrictions - wait for session to be fully established
+      console.log('Auth callback: Waiting for session to be established...')
       
-      if (userError) {
-        console.error('Auth callback: Error getting user', userError)
-        console.error('Error details:', JSON.stringify(userError))
+      // Make multiple attempts to get the user to ensure session is established
+      let user = null
+      let userError = null
+      
+      // Try up to 3 times with a small delay between attempts
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`Auth callback: Attempt ${attempt} to get user data`)
+        const result = await supabase.auth.getUser()
+        
+        if (result.data?.user) {
+          user = result.data.user
+          break
+        } else {
+          userError = result.error
+          // Wait 100ms before trying again
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+        }
+      }
+      
+      if (userError || !user) {
+        console.error('Auth callback: Error getting user after multiple attempts', userError)
         const errorUrl = createRedirectUrl('/login?error=auth_error', request)
         return NextResponse.redirect(errorUrl)
       }
@@ -54,41 +74,46 @@ export async function GET(request: NextRequest) {
       }
       
       // Log successful authentication
-      if (user) {
-        console.log('Auth callback: User authenticated', user.id)
-      }
+      console.log('Auth callback: User authenticated', user.id)
+      
+      // Create the response with proper cookies and session info
+      const response = NextResponse.redirect(redirectUrl)
+      
+      // Add additional session validation cookie
+      response.cookies.set({
+        name: 'auth_session_validated', 
+        value: 'true',
+        maxAge: 60 * 60 * 24, // 24 hours
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      })
+      
+      // Set cache control headers
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+      response.headers.set('Pragma', 'no-cache')
+      response.headers.set('Expires', '0')
+      
+      // Add debug cookies
+      response.cookies.set({
+        name: 'auth_debug',
+        value: 'callback_completed',
+        maxAge: 60 * 60 * 24,
+        path: '/',
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      })
+      
+      return response
     } else {
       console.log('Auth callback: No code provided in URL')
+      // If no code, redirect to the dashboard anyway and let middleware handle auth check
+      const response = NextResponse.redirect(redirectUrl)
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+      return response
     }
-    
-    // Log headers for debugging
-    console.log('Auth callback processing')
-    console.log('Request headers:', {
-      host: request.headers.get('host'),
-      forwardedHost: request.headers.get('x-forwarded-host'),
-      forwardedProto: request.headers.get('x-forwarded-proto')
-    })
-    
-    console.log('Redirecting to:', redirectUrl.toString())
-    
-    // Create the response with no-cache headers
-    const response = NextResponse.redirect(redirectUrl)
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
-    response.headers.set('Pragma', 'no-cache')
-    response.headers.set('Expires', '0')
-    
-    // Add debug cookies
-    response.cookies.set({
-      name: 'auth_debug',
-      value: 'callback_completed',
-      maxAge: 60 * 60 * 24,
-      path: '/',
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax'
-    })
-    
-    return response
   } catch (error) {
     console.error('Error in auth callback:', error)
     

@@ -28,6 +28,29 @@ export async function middleware(request: NextRequest) {
     // Create a new response to modify
     let response = NextResponse.next()
     
+    // First check for the auth flow cookie that might indicate we're in the middle of authentication
+    const authFlowStarted = request.cookies.get('auth_flow_started')
+    const authSessionValidated = request.cookies.get('auth_session_validated')
+    
+    if (authFlowStarted && !authSessionValidated) {
+      // We're in the middle of an auth flow, don't interrupt it
+      console.log('[DEBUG-MW] Auth flow in progress, skipping auth check')
+      
+      // Allow the request to continue to avoid interrupting the flow
+      const freshResponse = NextResponse.next()
+      
+      // Keep the auth_flow_started cookie alive
+      freshResponse.cookies.set({
+        name: 'auth_flow_started',
+        value: authFlowStarted.value,
+        maxAge: 300, // 5 minutes
+        path: '/',
+        sameSite: 'lax'
+      })
+      
+      return freshResponse
+    }
+    
     // Create a Supabase client with proper middleware integration
     const supabase = createMiddlewareClient({ 
       req: request, 
