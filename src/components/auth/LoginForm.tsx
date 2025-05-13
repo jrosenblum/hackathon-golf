@@ -45,7 +45,21 @@ export default function LoginForm() {
       setError(null)
       setLoginMethod('google')
       
+      // First, clear any existing session and cookies
+      // This helps prevent issues with stale state
       const supabase = createClient()
+      
+      // Clear any existing auth cookies to prevent conflicts
+      // Delete known Supabase cookie names
+      document.cookie = 'sb-wtclmehycsdgoetynaoi-auth-token=; path=/; max-age=0; domain=' + window.location.hostname
+      document.cookie = 'sb-wtclmehycsdgoetynaoi-auth-token-code-verifier=; path=/; max-age=0; domain=' + window.location.hostname
+      document.cookie = 'auth_session_validated=; path=/; max-age=0; domain=' + window.location.hostname
+      document.cookie = 'auth_flow_started=; path=/; max-age=0; domain=' + window.location.hostname
+      document.cookie = 'auth_debug=; path=/; max-age=0; domain=' + window.location.hostname
+      document.cookie = 'auth_redirect_debug=; path=/; max-age=0; domain=' + window.location.hostname
+      
+      // Add a small delay to ensure cookies are cleared
+      await new Promise(resolve => setTimeout(resolve, 100))
       
       // Use the current origin for the redirect
       const redirectUrl = new URL('/auth/callback', window.location.origin).toString()
@@ -54,6 +68,7 @@ export default function LoginForm() {
       // Add a session cookie to track the auth flow
       document.cookie = `auth_flow_started=${Date.now()};path=/;max-age=300;SameSite=Lax`
       
+      // Use signInWithOAuth and explicitly set all options
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -63,8 +78,9 @@ export default function LoginForm() {
             access_type: 'offline',
             prompt: 'consent',
           },
-          // Let Supabase handle the redirect
+          // Explicitly set these options
           skipBrowserRedirect: false,
+          flowType: 'pkce',
         },
       })
       
@@ -75,14 +91,17 @@ export default function LoginForm() {
       // The auth library should handle the redirect automatically, but in case it doesn't:
       if (data?.url) {
         console.log('Manual redirect to:', data.url)
-        window.location.href = data.url
+        // Add a delay before redirect to ensure cookies are properly set
+        setTimeout(() => {
+          window.location.href = data.url
+        }, 100)
       }
     } catch (error: any) {
       console.error('Authentication error:', error)
       setError(error.message || 'An error occurred during login')
-    } finally {
       setLoading(false)
     }
+    // Note: We don't set loading=false in the finally block because we're redirecting away
   }
 
   const handleEmailPasswordLogin = async (e: React.FormEvent) => {

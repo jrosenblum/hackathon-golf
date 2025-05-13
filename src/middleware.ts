@@ -13,9 +13,26 @@ export async function middleware(request: NextRequest) {
   
   // No special bypasses needed anymore - all routes should work properly now
   
-  // Public routes that don't require authentication
-  const publicRoutes = ['/', '/login', '/auth/callback', '/debug', '/api/auth-check']
-  const isPublicRoute = publicRoutes.some(route => pathname === route || (route !== '/' && pathname.startsWith(route)))
+  // Add more paths to public routes to avoid redirect loops
+  const publicRoutes = [
+    '/', 
+    '/login', 
+    '/auth/callback', 
+    '/debug', 
+    '/api/auth-check',
+    '/_next',
+    '/favicon.ico',
+    '/api/auth'
+  ]
+  
+  // Enhanced check for public routes
+  const isPublicRoute = publicRoutes.some(route => {
+    // Exact match
+    if (pathname === route) return true;
+    // Prefix match for non-root routes
+    if (route !== '/' && pathname.startsWith(route)) return true;
+    return false;
+  })
   
   if (isPublicRoute) {
     console.log('[DEBUG-MW] Public route, skipping auth check')
@@ -28,27 +45,61 @@ export async function middleware(request: NextRequest) {
     // Create a new response to modify
     let response = NextResponse.next()
     
-    // First check for the auth flow cookie that might indicate we're in the middle of authentication
+    // Bypass normal auth checks if:
+    // 1. We're in the middle of an auth flow (auth_flow_started cookie exists)
+    // 2. We have Supabase PKCE flow cookies
+    // 3. We have the auth_session_validated cookie
     const authFlowStarted = request.cookies.get('auth_flow_started')
     const authSessionValidated = request.cookies.get('auth_session_validated')
+    const hasPKCECookies = request.cookies.get('sb-wtclmehycsdgoetynaoi-auth-token-code-verifier') || 
+                          request.cookies.get('sb-auth-token-code-verifier')
     
-    if (authFlowStarted && !authSessionValidated) {
-      // We're in the middle of an auth flow, don't interrupt it
-      console.log('[DEBUG-MW] Auth flow in progress, skipping auth check')
+    // Check if we have an auth token cookie
+    const hasAuthTokenCookie = request.cookies.get('sb-wtclmehycsdgoetynaoi-auth-token') ||
+                              request.cookies.get('sb-auth-token')
+    
+    // Check for special cases that could indicate we're in the middle of an auth flow
+    if (authFlowStarted || hasPKCECookies || authSessionValidated) {
+      console.log('[DEBUG-MW] Auth flow indicators detected:',
+        authFlowStarted ? 'flow started cookie' : '',
+        hasPKCECookies ? 'PKCE cookies' : '',
+        authSessionValidated ? 'session validated cookie' : ''
+      )
       
-      // Allow the request to continue to avoid interrupting the flow
-      const freshResponse = NextResponse.next()
-      
-      // Keep the auth_flow_started cookie alive
-      freshResponse.cookies.set({
-        name: 'auth_flow_started',
-        value: authFlowStarted.value,
-        maxAge: 300, // 5 minutes
-        path: '/',
-        sameSite: 'lax'
-      })
-      
-      return freshResponse
+      // If we're in the middle of auth flow or have validation cookies, 
+      // let the request proceed to avoid interrupting the flow
+      if ((authFlowStarted && !authSessionValidated) || hasPKCECookies) {
+        console.log('[DEBUG-MW] Auth flow in progress, skipping auth check')
+        
+        // Allow the request to continue to avoid interrupting the flow
+        const freshResponse = NextResponse.next()
+        
+        // Keep the auth_flow_started cookie alive
+        if (authFlowStarted) {
+          freshResponse.cookies.set({
+            name: 'auth_flow_started',
+            value: authFlowStarted.value,
+            maxAge: 300, // 5 minutes
+            path: '/',
+            sameSite: 'lax'
+          })
+        }
+        
+        // If we have an auth token but not session validated, add it
+        if (hasAuthTokenCookie && !authSessionValidated) {
+          freshResponse.cookies.set({
+            name: 'auth_session_validated',
+            value: 'true',
+            maxAge: 60 * 60 * 24, // 24 hours
+            path: '/',
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax'
+          })
+        }
+        
+        return freshResponse
+      }
     }
     
     // Create a Supabase client with proper middleware integration

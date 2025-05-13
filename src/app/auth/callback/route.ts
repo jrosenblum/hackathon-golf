@@ -22,14 +22,45 @@ export async function GET(request: NextRequest) {
     if (code) {
       console.log('Auth callback: Exchanging code for session')
       
-      // Exchange the code for a session
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      // Add code to debug PKCE flow
+      console.log('Auth callback: Code verifier cookie present:', 
+        request.cookies.has('sb-wtclmehycsdgoetynaoi-auth-token-code-verifier') || 
+        request.cookies.has('sb-auth-token-code-verifier')
+      );
       
-      if (exchangeError) {
-        console.error('Auth callback: Error exchanging code for session', exchangeError)
-        console.error('Error details:', JSON.stringify(exchangeError))
-        const errorUrl = createRedirectUrl('/login?error=auth_error', request)
-        return NextResponse.redirect(errorUrl)
+      // Try to get the session directly instead of exchanging the code
+      // This is more reliable in Next.js when cookies are properly synchronized
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionData?.session) {
+        console.log('Auth callback: Session already established, skipping code exchange');
+        // Session exists, continue with the flow
+      } else {
+        // No session yet, try to exchange the code
+        try {
+          console.log('Auth callback: Attempting to exchange code for session');
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (exchangeError) {
+            console.error('Auth callback: Error exchanging code for session', exchangeError);
+            console.error('Error details:', JSON.stringify(exchangeError));
+            
+            // Even with an error, we might still have a session (race condition)
+            const { data: retrySession } = await supabase.auth.getSession();
+            if (!retrySession?.session) {
+              const errorUrl = createRedirectUrl('/login?error=auth_error', request);
+              return NextResponse.redirect(errorUrl);
+            }
+          }
+        } catch (exchangeError) {
+          console.error('Auth callback: Exception exchanging code', exchangeError);
+          // Check if we have a session anyway
+          const { data: emergencySession } = await supabase.auth.getSession();
+          if (!emergencySession?.session) {
+            const errorUrl = createRedirectUrl('/login?error=auth_error', request);
+            return NextResponse.redirect(errorUrl);
+          }
+        }
       }
       
       // Get the user to check domain restrictions - wait for session to be fully established
