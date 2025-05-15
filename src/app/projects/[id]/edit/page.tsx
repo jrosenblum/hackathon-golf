@@ -48,8 +48,10 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
               id,
               name,
               team_members (
+                id,
                 user_id,
-                is_leader
+                is_leader,
+                is_approved
               )
             )
           `)
@@ -67,14 +69,25 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
         // Check if user is authorized to edit this project
         // User can edit if they are a member of the team AND a team leader
         const teamMembers = project.teams?.team_members || []
-        const isUserTeamLeader = teamMembers.some(
-          (member: any) => member.user_id === user.id && member.is_leader
+        
+        console.log('Checking team leader status for edit page:')
+        console.log('User ID:', user.id)
+        console.log('Team members:', JSON.stringify(teamMembers))
+        
+        // Improved check with better logging to debug permission issues
+        const userTeamMember = teamMembers.find(
+          (member: any) => member.user_id === user.id && member.is_approved === true
         )
         
+        const isUserTeamLeader = userTeamMember && userTeamMember.is_leader
+        
         if (!isUserTeamLeader) {
+          console.log('User is not a team leader or not a team member')
           setIsAuthorized(false)
           return
         }
+        
+        console.log('User is a team leader and authorized to edit')
         
         setIsAuthorized(true)
         

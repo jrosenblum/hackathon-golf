@@ -57,13 +57,16 @@ async function getProject(id: string) {
     }
     
     // Now fetch team members in a separate query to simplify
+    // Make sure to include the team member ID to facilitate checking leadership status
     const { data: teamMembers, error: teamMembersError } = await supabase
       .from('team_members')
       .select(`
+        id,
         user_id,
         is_leader,
         is_approved,
         profiles (
+          id,
           full_name,
           email
         )
@@ -103,16 +106,29 @@ async function isUserTeamLeader(userId: string | null, teamId: string) {
   
   try {
     const supabase = await createClient()
+    
+    // Enhanced query with better logging to help debug permission issues
+    console.log(`Checking if user ${userId} is a leader for team ${teamId}`)
+    
     const { data, error } = await supabase
       .from('team_members')
-      .select('is_leader')
+      .select('id, is_leader, user_id')
       .eq('team_id', teamId)
       .eq('user_id', userId)
       .eq('is_approved', true)
       .single()
     
-    if (error || !data) return false
+    if (error) {
+      console.error('Error checking team leader status:', error.message)
+      return false
+    }
     
+    if (!data) {
+      console.log(`No team member record found for user ${userId} in team ${teamId}`)
+      return false
+    }
+    
+    console.log(`User ${userId} is${data.is_leader ? '' : ' not'} a team leader for team ${teamId}`)
     return data.is_leader
   } catch (error) {
     console.error('Error checking if user is team leader:', error)
@@ -152,8 +168,11 @@ export default async function ProjectPage({ params }: { params: { id: string } }
             {canEdit && (
               <Link
                 href={`/projects/${project.id}/edit`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
               >
+                <svg className="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
                 Edit Project
               </Link>
             )}
@@ -239,7 +258,14 @@ export default async function ProjectPage({ params }: { params: { id: string } }
                 <ul className="divide-y divide-gray-200">
                   {teamMembers.map((member: any, index: number) => (
                     <li key={index} className="py-2 flex items-center">
-                      <span className="flex-1">{member.name} {member.isLeader && <span className="text-xs text-gray-500">(Team Leader)</span>}</span>
+                      <span className="flex-1">
+                        {member.name}
+                        {member.isLeader && (
+                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Team Leader
+                          </span>
+                        )}
+                      </span>
                       <span className="text-gray-500 text-sm">{member.email}</span>
                     </li>
                   ))}
