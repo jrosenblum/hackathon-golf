@@ -66,28 +66,50 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
           throw new Error('Project not found')
         }
         
-        // Check if user is authorized to edit this project
-        // User can edit if they are a member of the team AND a team leader
-        const teamMembers = project.teams?.team_members || []
-        
-        console.log('Checking team leader status for edit page:')
+        // Direct database check for team leader status
+        // We'll bypass the teams query and check directly in the team_members table
+        // This will ensure we get consistent results
+        console.log('====== EDIT PAGE AUTH CHECK ======')
         console.log('User ID:', user.id)
-        console.log('Team members:', JSON.stringify(teamMembers))
+        console.log('Team ID:', project.team_id)
         
-        // Improved check with better logging to debug permission issues
-        const userTeamMember = teamMembers.find(
-          (member: any) => member.user_id === user.id && member.is_approved === true
-        )
+        // Get team leader status directly from database
+        const { data: leaderData, error: leaderError } = await supabase
+          .from('team_members')
+          .select('id, is_leader, user_id, is_approved')
+          .eq('team_id', project.team_id)
+          .eq('user_id', user.id)
+          .eq('is_approved', true)
+          .single()
+          
+        if (leaderError) {
+          console.error('Error checking leader status:', leaderError)
+          console.log('Setting isAuthorized to false')
+          setIsAuthorized(false)
+          return
+        }
         
-        const isUserTeamLeader = userTeamMember && userTeamMember.is_leader
+        if (!leaderData) {
+          console.log('No approved team membership found')
+          console.log('Setting isAuthorized to false')
+          setIsAuthorized(false)
+          return
+        }
+        
+        console.log('Team member record:', JSON.stringify(leaderData))
+        
+        const isUserTeamLeader = leaderData.is_leader
         
         if (!isUserTeamLeader) {
-          console.log('User is not a team leader or not a team member')
+          console.log('User is not a team leader')
+          console.log('Setting isAuthorized to false')
           setIsAuthorized(false)
           return
         }
         
         console.log('User is a team leader and authorized to edit')
+        console.log('Setting isAuthorized to true')
+        console.log('====== END EDIT PAGE AUTH CHECK ======')
         
         setIsAuthorized(true)
         

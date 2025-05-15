@@ -2,9 +2,12 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
+import { cookies } from 'next/headers'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 
 async function getProject(id: string) {
-  const supabase = await createClient()
+  // Use the server component client for better cookie handling
+  const supabase = createServerComponentClient({ cookies })
   
   console.log(`Fetching project with ID: ${id}`)
   
@@ -92,27 +95,86 @@ async function getProject(id: string) {
 
 async function getCurrentUserId() {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
-    return user?.id || null
+    console.log("Getting current user ID using server component client...")
+    
+    // Create a server component client with cookies access
+    const supabase = createServerComponentClient({ cookies })
+    
+    // Try to get the session first (more reliable in server components)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError) {
+      console.error('Error getting session:', sessionError.message)
+    } else if (session?.user) {
+      console.log(`Found user via session: ${session.user.id}`)
+      return session.user.id
+    }
+    
+    // Also try getUser as a fallback
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError) {
+      console.error('Error getting user:', userError.message)
+      return null
+    }
+    
+    if (!user) {
+      console.log('No user found - not authenticated')
+      return null
+    }
+    
+    console.log(`Found user via getUser: ${user.id}`)
+    return user.id
   } catch (error) {
-    console.error('Error getting current user:', error)
+    console.error('Unexpected error getting current user:', error)
     return null
   }
 }
 
 async function isUserTeamLeader(userId: string | null, teamId: string) {
-  if (!userId) return false
+  if (!userId) {
+    console.log('No user ID provided, cannot check team leader status')
+    return false
+  }
   
   try {
-    const supabase = await createClient()
+    // Use the server component client that has access to cookies
+    const supabase = createServerComponentClient({ cookies })
     
-    // Enhanced query with better logging to help debug permission issues
+    // Log the check we're about to perform
+    console.log(`====== TEAM LEADER CHECK ======`)
     console.log(`Checking if user ${userId} is a leader for team ${teamId}`)
     
+    // First, check if the team exists
+    const { data: team, error: teamError } = await supabase
+      .from('teams')
+      .select('id, name')
+      .eq('id', teamId)
+      .single()
+      
+    if (teamError) {
+      console.error('Error fetching team:', teamError.message)
+      return false
+    }
+    
+    console.log(`Team found: ${team.name} (${team.id})`)
+    
+    // Now get ALL members of this team for debugging
+    const { data: allMembers, error: allMembersError } = await supabase
+      .from('team_members')
+      .select('id, user_id, is_leader, is_approved')
+      .eq('team_id', teamId)
+    
+    if (allMembersError) {
+      console.error('Error fetching all team members:', allMembersError.message)
+    } else {
+      console.log('All team members:', JSON.stringify(allMembers))
+    }
+    
+    // Now perform the actual leadership check
     const { data, error } = await supabase
       .from('team_members')
-      .select('id, is_leader, user_id')
+      .select('id, is_leader, user_id, is_approved')
       .eq('team_id', teamId)
       .eq('user_id', userId)
       .eq('is_approved', true)
@@ -120,15 +182,19 @@ async function isUserTeamLeader(userId: string | null, teamId: string) {
     
     if (error) {
       console.error('Error checking team leader status:', error.message)
+      console.log('Error details:', JSON.stringify(error))
       return false
     }
     
     if (!data) {
-      console.log(`No team member record found for user ${userId} in team ${teamId}`)
+      console.log(`No approved team member record found for user ${userId} in team ${teamId}`)
       return false
     }
     
+    console.log(`Team member record found:`, JSON.stringify(data))
     console.log(`User ${userId} is${data.is_leader ? '' : ' not'} a team leader for team ${teamId}`)
+    console.log(`====== END TEAM LEADER CHECK ======`)
+    
     return data.is_leader
   } catch (error) {
     console.error('Error checking if user is team leader:', error)
@@ -147,14 +213,25 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   }
 
   const userId = await getCurrentUserId()
+  console.log(`Current user ID: ${userId || 'Not logged in'}`)
+  console.log(`Project team ID: ${project.team_id}`)
+  
+  // Debug the team leader permission check
   const canEdit = await isUserTeamLeader(userId, project.team_id)
+  console.log(`Can user edit project: ${canEdit ? 'YES' : 'NO'}`)
 
+  // Debug team members
+  console.log('Raw team members data:', JSON.stringify(project.team_members));
+  
   const teamMembers = project.team_members
     ?.map((member: any) => ({
       name: member.profiles?.full_name || 'Unknown',
       email: member.profiles?.email || '',
-      isLeader: member.is_leader
+      isLeader: member.is_leader,
+      userId: member.user_id // Track user ID for debugging
     })) || []
+    
+  console.log('Processed team members:', JSON.stringify(teamMembers));
   
   return (
     <MainLayout>
