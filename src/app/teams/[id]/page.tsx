@@ -321,14 +321,25 @@ export default function TeamDetailPage() {
       const memberToPromote = members.find(m => m.id === memberId)
       if (!memberToPromote) throw new Error("Member not found")
       
-      // First, demote the current leader (the person making this change)
+      console.log('Assigning new team leader', {
+        currentUser: currentUser.id,
+        memberToPromote: memberToPromote.user_id,
+        teamId,
+      })
+
+      // First, demote ALL existing team leaders for this team
       const { error: demoteError } = await supabase
         .from('team_members')
         .update({ is_leader: false })
-        .eq('user_id', currentUser.id)
         .eq('team_id', teamId)
+        .eq('is_leader', true)
       
-      if (demoteError) throw new Error(demoteError.message)
+      if (demoteError) {
+        console.error('Error demoting existing leaders:', demoteError)
+        throw new Error('Failed to update team leadership: ' + demoteError.message)
+      }
+      
+      console.log('Demoted all existing team leaders')
       
       // Then, promote the new leader
       const { error: promoteError } = await supabase
@@ -336,7 +347,12 @@ export default function TeamDetailPage() {
         .update({ is_leader: true })
         .eq('id', memberId)
         
-      if (promoteError) throw new Error(promoteError.message)
+      if (promoteError) {
+        console.error('Error promoting new leader:', promoteError)
+        throw new Error('Failed to promote new leader: ' + promoteError.message)
+      }
+      
+      console.log('Promoted new team leader')
       
       // Update the local state to reflect both changes
       setMembers(prevMembers => 
@@ -344,11 +360,9 @@ export default function TeamDetailPage() {
           if (member.id === memberId) {
             // Promote the selected member
             return { ...member, is_leader: true }
-          } else if (member.user_id === currentUser.id) {
-            // Demote the current user
-            return { ...member, is_leader: false }
           } else {
-            return member
+            // Demote all other members
+            return { ...member, is_leader: false }
           }
         })
       )

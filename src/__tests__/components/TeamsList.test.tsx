@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import TeamsList from '@/components/teams/TeamsList';
 import { createClient } from '@/lib/supabase/client';
 
@@ -8,6 +8,55 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
   }),
+}));
+
+// Create a reusable mock for the Supabase client
+const createMockSupabaseClient = (options = {}) => {
+  const { 
+    getUserError = null, 
+    pendingTeamsError = null, 
+    approvedTeamsError = null 
+  } = options;
+  
+  return {
+    auth: {
+      getUser: jest.fn().mockResolvedValue({
+        data: { user: { id: 'current-user' } },
+        error: getUserError
+      })
+    },
+    from: jest.fn().mockImplementation((table) => {
+      const isTeamMembers = table === 'team_members';
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockImplementation((field, value) => {
+              // If querying for pending requests (is_approved = false)
+              if (isTeamMembers && field === 'is_approved' && value === false) {
+                return Promise.resolve({
+                  data: [{ team_id: 'team-2' }],
+                  error: pendingTeamsError
+                });
+              }
+              // If querying for approved teams (is_approved = true)
+              if (isTeamMembers && field === 'is_approved' && value === true) {
+                return Promise.resolve({
+                  data: [{ team_id: 'team-1' }],
+                  error: approvedTeamsError
+                });
+              }
+              return Promise.resolve({ data: [], error: null });
+            })
+          })
+        })
+      };
+    })
+  };
+};
+
+// Mock the createClient function at the module level
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: jest.fn()
 }));
 
 describe('TeamsList Component', () => {
@@ -38,69 +87,76 @@ describe('TeamsList Component', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Set up the default mock implementation
+    (createClient as jest.Mock).mockImplementation(() => createMockSupabaseClient());
   });
 
-  test('renders teams list correctly', () => {
+  test('renders teams list correctly after loading state', async () => {
     render(<TeamsList teams={mockTeams} />);
     
-    // Check if team names are displayed
-    expect(screen.getByText('Team Alpha')).toBeInTheDocument();
-    expect(screen.getByText('Team Beta')).toBeInTheDocument();
+    // Initially, it should show loading indicator
+    expect(screen.getByTestId('teams-loading')).toBeInTheDocument();
+    expect(screen.getByText('Loading teams...')).toBeInTheDocument();
     
-    // Check if team descriptions are displayed
-    expect(screen.getByText('This is Team Alpha')).toBeInTheDocument();
-    expect(screen.getByText('This is Team Beta')).toBeInTheDocument();
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.queryByTestId('teams-loading')).not.toBeInTheDocument();
+    });
     
-    // Check if skills are displayed
-    expect(screen.getByText('React')).toBeInTheDocument();
-    expect(screen.getByText('TypeScript')).toBeInTheDocument();
-    expect(screen.getByText('Node.js')).toBeInTheDocument();
-    expect(screen.getByText('MongoDB')).toBeInTheDocument();
-    
-    // Check if member count is displayed
-    expect(screen.getByText('2 members')).toBeInTheDocument();
-    expect(screen.getByText('1 member')).toBeInTheDocument();
+    // Now check if team data is displayed
+    await waitFor(() => {
+      // Check if team names are displayed
+      expect(screen.getByText('Team Alpha')).toBeInTheDocument();
+      expect(screen.getByText('Team Beta')).toBeInTheDocument();
+      
+      // Check if team descriptions are displayed
+      expect(screen.getByText('This is Team Alpha')).toBeInTheDocument();
+      expect(screen.getByText('This is Team Beta')).toBeInTheDocument();
+      
+      // Check if skills are displayed
+      expect(screen.getByText('React')).toBeInTheDocument();
+      expect(screen.getByText('TypeScript')).toBeInTheDocument();
+      expect(screen.getByText('Node.js')).toBeInTheDocument();
+      expect(screen.getByText('MongoDB')).toBeInTheDocument();
+      
+      // Check if member count is displayed
+      expect(screen.getByText('2 members')).toBeInTheDocument();
+      expect(screen.getByText('1 member')).toBeInTheDocument();
+    });
   });
 
-  test('displays empty state when no teams', () => {
+  test('displays empty state when no teams after loading', async () => {
     render(<TeamsList teams={[]} />);
     
-    expect(screen.getByText('No teams available')).toBeInTheDocument();
-    expect(screen.getByText('Be the first to create a team for the hackathon.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Create a Team' })).toBeInTheDocument();
+    // Initially shows loading state
+    expect(screen.getByTestId('teams-loading')).toBeInTheDocument();
+    
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.queryByTestId('teams-loading')).not.toBeInTheDocument();
+    });
+    
+    // Now check for empty state
+    await waitFor(() => {
+      expect(screen.getByTestId('no-teams-available')).toBeInTheDocument();
+      expect(screen.getByText('No teams available')).toBeInTheDocument();
+      expect(screen.getByText('Be the first to create a team for the hackathon.')).toBeInTheDocument();
+      expect(screen.getByTestId('create-team-button')).toBeInTheDocument();
+    });
   });
 
   test('shows pending request indicators for teams with pending requests', async () => {
-    // Create a more direct mock specifically for this test
-    jest.spyOn(require('@/lib/supabase/client'), 'createClient').mockImplementation(() => ({
-      auth: {
-        getUser: jest.fn().mockResolvedValue({
-          data: { user: { id: 'current-user' } }
-        })
-      },
-      from: jest.fn().mockImplementation(() => {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockResolvedValue({
-                data: [{ team_id: 'team-2' }],
-                error: null
-              })
-            })
-          })
-        };
-      })
-    }));
-    
-    // Render with the global mock in place
+    // Render with the default mock in place
     render(<TeamsList teams={mockTeams} />);
     
-    // Force the component to re-render with pending data
-    // We need to manually update the component state since Jest doesn't
-    // wait for all async operations in useEffect
+    // Wait for loading to complete
     await waitFor(() => {
-      // Look for the "Request Pending" text to appear
-      expect(screen.queryByText('Request Pending')).toBeInTheDocument();
+      expect(screen.queryByTestId('teams-loading')).not.toBeInTheDocument();
+    });
+    
+    // Now check for the team list to be displayed
+    await waitFor(() => {
+      expect(screen.getByTestId('teams-list-container')).toBeInTheDocument();
     });
     
     // Verify both teams are rendered 
@@ -111,13 +167,36 @@ describe('TeamsList Component', () => {
     expect(screen.getByTestId('pending-request-badge')).toBeInTheDocument();
     expect(screen.getByTestId('awaiting-approval-badge')).toBeInTheDocument();
     
-    // Check that Team Beta has the pending class 
-    expect(screen.getByTestId('team-team-2')).toHaveClass('team-pending-request');
+    // Check background colors instead of class names
+    const team2Element = screen.getByTestId('team-team-2');
+    expect(team2Element).toHaveClass('bg-yellow-50');
     
-    // Team Alpha should not have pending indicators
-    expect(screen.getByTestId('team-team-1')).not.toHaveClass('team-pending-request');
+    // Team Alpha should have the member class (green background)
+    const team1Element = screen.getByTestId('team-team-1');
+    expect(team1Element).toHaveClass('bg-green-50');
     
-    // Team Alpha should still show "Looking for members"
-    expect(screen.getByText('Looking for members')).toBeInTheDocument();
+    // Team Alpha should still show "You are a member"
+    expect(screen.getByText('You are a member')).toBeInTheDocument();
+  });
+  
+  test('displays error message when authentication fails', async () => {
+    // Mock an authentication error
+    (createClient as jest.Mock).mockImplementation(() => 
+      createMockSupabaseClient({
+        getUserError: { message: 'Authentication failed' }
+      })
+    );
+    
+    render(<TeamsList teams={mockTeams} />);
+    
+    // Initially shows loading state
+    expect(screen.getByTestId('teams-loading')).toBeInTheDocument();
+    
+    // Wait for error message to appear
+    await waitFor(() => {
+      expect(screen.getByTestId('teams-error-message')).toBeInTheDocument();
+      expect(screen.getByText('Error loading teams')).toBeInTheDocument();
+      expect(screen.getByText('Authentication error: Authentication failed')).toBeInTheDocument();
+    });
   });
 });

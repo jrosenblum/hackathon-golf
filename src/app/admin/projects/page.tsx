@@ -64,22 +64,22 @@ export default async function ProjectsPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
                     Project
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                     Team
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                     Hackathon
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
                     Status
                   </th>
-                  <th scope="col" className="relative px-6 py-3">
+                  <th scope="col" className="relative px-6 py-3 w-36">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
@@ -88,20 +88,20 @@ export default async function ProjectsPage() {
                 {projects.map((project) => {
                   return (
                     <tr key={project.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">{project.title}</div>
-                        <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-blue-600 break-words">{project.title}</div>
+                        <div className="text-xs text-gray-500 mt-1">
                           {project.description?.substring(0, 60)}
                           {project.description?.length > 60 ? '...' : ''}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{project.team_name}</div>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 break-words">{project.team_name}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{project.hackathon_title}</div>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 break-words">{project.hackathon_title}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4">
                         {project.is_submitted ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Submitted
@@ -112,13 +112,23 @@ export default async function ProjectsPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link href={`/admin/projects/${project.id}`} className="text-blue-600 hover:text-blue-900 mr-4">
-                          View
-                        </Link>
-                        <Link href={`/admin/projects/${project.id}/edit`} className="text-blue-600 hover:text-blue-900">
-                          Edit
-                        </Link>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col md:flex-row gap-2 min-w-fit">
+                          <Link 
+                            href={`/admin/projects/${project.id}`} 
+                            className="inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
+                            title="View"
+                          >
+                            View
+                          </Link>
+                          <Link 
+                            href={`/admin/projects/${project.id}/edit`} 
+                            className="inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
+                            title="Edit"
+                          >
+                            Edit
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   )
