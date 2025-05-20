@@ -29,6 +29,7 @@ export const ALLOWED_EMAIL_DOMAINS = [
   'premierdisability.com',
   'medscapelive.com',
   'demandforce.com',
+  'aptushealth.com',
   'avvo.com'
 ];
 
