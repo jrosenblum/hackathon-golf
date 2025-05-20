@@ -36,6 +36,16 @@ export default function LoginForm() {
         console.error('Error importing allowed domains:', err);
         setError('You must use a company email address to log in.');
       });
+    } else if (errorParam === 'auth_error') {
+      // Check localStorage for more specific error info
+      const authErrorDetails = localStorage.getItem('auth_error_details');
+      if (authErrorDetails && authErrorDetails.includes('rate_limit')) {
+        setError('Rate limit reached. Please wait a few minutes and try again.');
+      } else {
+        setError('Authentication error. Please try again or contact support if the issue persists.');
+      }
+      // Clear the error details from localStorage
+      localStorage.removeItem('auth_error_details');
     }
   }, []);
 
@@ -98,7 +108,16 @@ export default function LoginForm() {
       }
     } catch (error: any) {
       console.error('Authentication error:', error)
-      setError(error.message || 'An error occurred during login')
+      
+      // Check if it's a rate limit error
+      if (error.status === 429 || 
+          error.message?.includes('rate limit') || 
+          error.code === 'over_request_rate_limit') {
+        setError('Rate limit reached. Please wait a few minutes and try again.')
+      } else {
+        setError(error.message || 'An error occurred during login')
+      }
+      
       setLoading(false)
     }
     // Note: We don't set loading=false in the finally block because we're redirecting away
@@ -143,7 +162,15 @@ export default function LoginForm() {
       router.push('/dashboard')
     } catch (error: any) {
       console.error('Authentication error:', error);
-      setError(error.message || 'An error occurred during login')
+      
+      // Check if it's a rate limit error
+      if (error.status === 429 || 
+          error.message?.includes('rate limit') || 
+          error.code === 'over_request_rate_limit') {
+        setError('Rate limit reached. Please wait a few minutes and try again.')
+      } else {
+        setError(error.message || 'An error occurred during login')
+      }
     } finally {
       setLoading(false)
     }
@@ -190,7 +217,15 @@ export default function LoginForm() {
       setError('Verification email sent! Please check your inbox.')
     } catch (error: any) {
       console.error('Signup error:', error);
-      setError(error.message || 'An error occurred during signup')
+      
+      // Check if it's a rate limit error
+      if (error.status === 429 || 
+          error.message?.includes('rate limit') || 
+          error.code === 'over_request_rate_limit') {
+        setError('Rate limit reached. Please wait a few minutes and try again.')
+      } else {
+        setError(error.message || 'An error occurred during signup')
+      }
     } finally {
       setLoading(false)
     }

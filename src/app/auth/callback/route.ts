@@ -48,16 +48,44 @@ export async function GET(request: NextRequest) {
             // Even with an error, we might still have a session (race condition)
             const { data: retrySession } = await supabase.auth.getSession();
             if (!retrySession?.session) {
-              const errorUrl = createRedirectUrl('/login?error=auth_error', request);
+              let errorUrl;
+              
+              // Check if it's a rate limit error
+              if (exchangeError.status === 429 || 
+                  exchangeError.message?.includes('rate limit') ||
+                  exchangeError.code === 'over_request_rate_limit') {
+                // Generate a URL with client-side script to store rate limit error info
+                errorUrl = new URL(createRedirectUrl('/login', request));
+                errorUrl.pathname = '/auth/rate-limit-redirect';
+                return NextResponse.redirect(errorUrl);
+              } else {
+                // Generic auth error
+                errorUrl = createRedirectUrl('/login?error=auth_error', request);
+              }
+              
               return NextResponse.redirect(errorUrl);
             }
           }
-        } catch (exchangeError) {
+        } catch (exchangeError: any) {
           console.error('Auth callback: Exception exchanging code', exchangeError);
           // Check if we have a session anyway
           const { data: emergencySession } = await supabase.auth.getSession();
           if (!emergencySession?.session) {
-            const errorUrl = createRedirectUrl('/login?error=auth_error', request);
+            let errorUrl;
+            
+            // Check if it's a rate limit error
+            if (exchangeError?.status === 429 || 
+                exchangeError?.message?.includes('rate limit') ||
+                exchangeError?.code === 'over_request_rate_limit' ||
+                JSON.stringify(exchangeError).includes('rate_limit')) {
+              // Generate a URL with client-side script to store rate limit error info
+              errorUrl = new URL(createRedirectUrl('/login', request));
+              errorUrl.pathname = '/auth/rate-limit-redirect';
+            } else {
+              // Generic auth error
+              errorUrl = createRedirectUrl('/login?error=auth_error', request);
+            }
+            
             return NextResponse.redirect(errorUrl);
           }
         }
