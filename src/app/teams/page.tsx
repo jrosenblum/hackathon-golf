@@ -3,7 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import MainLayout from '@/components/layout/MainLayout'
 import TeamsList from '@/components/teams/TeamsList'
 
+// Disable static site generation and caching for this page
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getTeams() {
+  console.log('Fetching teams with fresh data at:', new Date().toISOString())
+  
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('teams')

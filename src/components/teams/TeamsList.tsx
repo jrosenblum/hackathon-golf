@@ -44,6 +44,10 @@ export default function TeamsList({ teams }: { teams: Team[] }) {
       try {
         setIsLoading(true)
         setError(null)
+        
+        // Add a timestamp to help debug refresh cycles
+        console.log('Fetching user team status at:', new Date().toISOString())
+        
         const supabase = createClient()
         
         // Get current user
@@ -97,7 +101,16 @@ export default function TeamsList({ teams }: { teams: Team[] }) {
       }
     }
     
+    // Initial fetch
     fetchUserTeamStatus()
+    
+    // Set up periodic refresh every 30 seconds to fetch new data
+    const refreshInterval = setInterval(() => {
+      fetchUserTeamStatus()
+    }, 30000) // 30 seconds
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(refreshInterval)
   }, [])
   
   // Display error message if there's an error
