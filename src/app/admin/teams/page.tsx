@@ -4,6 +4,8 @@ import MainLayout from '@/components/layout/MainLayout'
 import { checkIsAdmin } from '@/lib/auth.server'
 
 async function getTeams() {
+  console.log('Fetching admin teams with fresh data at:', new Date().toISOString())
+  
   const supabase = await createClient()
   
   const { data, error } = await supabase
@@ -29,6 +31,7 @@ async function getTeams() {
 
 // Tell Next.js this page is dynamic and can't be statically generated
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function TeamsPage() {
   await checkIsAdmin()

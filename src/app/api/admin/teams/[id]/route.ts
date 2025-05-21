@@ -117,6 +117,65 @@ export async function POST(
         }
 
         return NextResponse.json({ success: true })
+        
+      case 'addMember':
+        if (!data.email) {
+          return NextResponse.json({ error: 'User email is required' }, { status: 400 })
+        }
+        
+        // First find the user by email
+        const { data: userData, error: userError } = await adminClient
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('email', data.email.trim())
+          .single()
+          
+        if (userError || !userData) {
+          console.error('Error finding user:', userError)
+          return NextResponse.json({ error: `User with email ${data.email} not found` }, { status: 404 })
+        }
+        
+        // Check if user is already a member of this team
+        const { data: existingMember, error: memberCheckError } = await adminClient
+          .from('team_members')
+          .select('id')
+          .eq('team_id', teamId)
+          .eq('user_id', userData.id)
+          .maybeSingle()
+          
+        if (existingMember) {
+          return NextResponse.json({ error: 'This user is already a member of the team' }, { status: 400 })
+        }
+        
+        // Add the member to the team using admin client to bypass RLS
+        const { data: newMember, error: addError } = await adminClient
+          .from('team_members')
+          .insert({
+            team_id: teamId,
+            user_id: userData.id,
+            is_approved: true,  // Admin-added members are auto-approved
+            is_leader: false
+          })
+          .select('id, user_id, is_approved, is_leader')
+          .single()
+          
+        if (addError) {
+          console.error('Error adding team member:', addError)
+          return NextResponse.json({ error: `Failed to add team member: ${addError.message}` }, { status: 500 })
+        }
+        
+        // Return the new member with the profile info
+        return NextResponse.json({ 
+          success: true, 
+          member: {
+            ...newMember,
+            profiles: {
+              id: userData.id,
+              email: userData.email,
+              full_name: userData.full_name
+            }
+          }
+        })
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

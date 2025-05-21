@@ -406,57 +406,34 @@ export default function AdminEditTeamPage({ params }: { params: { id: string } }
     setSuccess(null)
     
     try {
-      const supabase = createClient()
+      // Use the admin API endpoint instead of direct Supabase client
+      // This bypasses RLS policies through the server-side admin client
+      const response = await fetch(`/api/admin/teams/${teamId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'addMember',
+          data: {
+            email: newMemberEmail.trim()
+          }
+        }),
+      });
       
-      // First find the user by email
-      const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('id, email, full_name')
-        .eq('email', newMemberEmail.trim())
-        .single()
+      const result = await response.json();
       
-      if (userError || !userData) {
-        throw new Error(`User with email ${newMemberEmail} not found`)
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to add team member');
       }
-      
-      // Check if user is already a member of this team
-      const { data: existingMember, error: memberCheckError } = await supabase
-        .from('team_members')
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('user_id', userData.id)
-        .maybeSingle()
-      
-      if (existingMember) {
-        throw new Error('This user is already a member of the team')
-      }
-      
-      // Add the member to the team
-      const { data: newMember, error: addError } = await supabase
-        .from('team_members')
-        .insert({
-          team_id: teamId,
-          user_id: userData.id,
-          is_approved: true,  // Admin-added members are auto-approved
-          is_leader: false
-        })
-        .select('id, user_id, is_approved, is_leader')
-        .single()
-      
-      if (addError) throw new Error(`Error adding member: ${addError.message}`)
       
       // Add to the approved members list
-      setApprovedMembers(prevMembers => [
-        ...prevMembers, 
-        { 
-          ...newMember, 
-          profiles: {
-            id: userData.id,
-            email: userData.email,
-            full_name: userData.full_name
-          }
-        }
-      ])
+      if (result.success && result.member) {
+        setApprovedMembers(prevMembers => [
+          ...prevMembers, 
+          result.member
+        ])
+      }
       
       // Clear the input
       setNewMemberEmail('')

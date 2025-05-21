@@ -4,6 +4,8 @@ import MainLayout from '@/components/layout/MainLayout'
 import { checkIsAdmin } from '@/lib/auth.server'
 
 async function getTeam(teamId: string) {
+  console.log(`Fetching admin team detail with fresh data for team ${teamId} at:`, new Date().toISOString())
+  
   const supabase = await createClient()
   
   const { data: team, error } = await supabase
@@ -44,6 +46,10 @@ async function getTeam(teamId: string) {
     pendingCount: pendingMembers.length
   }
 }
+
+// Disable caching for this page
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminTeamDetailPage({ params }: { params: { id: string } }) {
   await checkIsAdmin()
