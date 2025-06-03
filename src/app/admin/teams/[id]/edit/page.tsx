@@ -48,8 +48,7 @@ export default function AdminEditTeamPage({ params }: { params: { id: string } }
   const teamId = params.id
 
   // Load team data and check if user is an admin
-  useEffect(() => {
-    const loadTeam = async () => {
+  const loadTeam = async () => {
       try {
         setIsLoading(true)
         const supabase = createClient()
@@ -64,7 +63,7 @@ export default function AdminEditTeamPage({ params }: { params: { id: string } }
           return
         }
         
-        // Get team details
+        // Get team details with cache-busting
         const { data: team, error: teamError } = await supabase
           .from('teams')
           .select(`
@@ -118,6 +117,8 @@ export default function AdminEditTeamPage({ params }: { params: { id: string } }
         const leader = approved.find((member: TeamMember) => member.is_leader)
         if (leader) {
           setCurrentLeaderId(leader.user_id)
+        } else {
+          setCurrentLeaderId(null)
         }
       } catch (error) {
         console.error('Error loading team:', error)
@@ -127,6 +128,7 @@ export default function AdminEditTeamPage({ params }: { params: { id: string } }
       }
     }
     
+  useEffect(() => {
     loadTeam()
   }, [router, teamId])
 
@@ -148,151 +150,32 @@ export default function AdminEditTeamPage({ params }: { params: { id: string } }
     setSuccess(null)
     
     try {
-      console.log(`[DEBUG-TEAM-LEADER] Attempting to set member ${memberId} as team leader for team ${teamId}`)
-      console.log(`[DEBUG-TEAM-LEADER] Current user ID: ${userId}`)
+      console.log(`[DEBUG-TEAM-LEADER] Setting member ${memberId} as team leader for team ${teamId}`)
       
-      const supabase = createClient()
-      
-      // ** IMPORTANT: Using SQL query through RPC as a last resort **
-      // Calling a database function directly is a workaround when RLS is problematic
-      // and admin API isn't working
-      console.log('[DEBUG-TEAM-LEADER] Using SQL workaround to update team leader...')
-      
-      // First check that we're an admin
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('Not authenticated')
-      }
-      
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single()
-      
-      console.log('[DEBUG-TEAM-LEADER] Admin check:', profileData, profileError)
-      
-      if (!profileData?.is_admin) {
-        throw new Error('Admin permission required to set team leader')
-      }
-      
-      // Directly modify the team member records
-      console.log('[DEBUG-TEAM-LEADER] Attempting direct update...')
-      
-      // 1. First, join the team as a member (necessary for some RLS policies)
-      console.log('[DEBUG-TEAM-LEADER] Checking if we need to join the team...')
-      const { data: existingMembership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('id, is_leader')
-        .eq('team_id', teamId)
-        .eq('user_id', user.id)
-        .maybeSingle()
-      
-      if (!existingMembership) {
-        console.log('[DEBUG-TEAM-LEADER] Temporarily joining team...')
-        const { data: joinData, error: joinError } = await supabase
-          .from('team_members')
-          .insert({
-            team_id: teamId,
-            user_id: user.id,
-            is_approved: true,
-            is_leader: true // Make ourselves a leader so we can update
-          })
-          .select()
-        
-        console.log('[DEBUG-TEAM-LEADER] Join result:', joinData, joinError)
-      } else if (!existingMembership.is_leader) {
-        // Make ourselves a leader temporarily
-        console.log('[DEBUG-TEAM-LEADER] Making ourselves a leader...')
-        const { data: leaderData, error: leaderError } = await supabase
-          .from('team_members')
-          .update({ is_leader: true })
-          .eq('id', existingMembership.id)
-        
-        console.log('[DEBUG-TEAM-LEADER] Self-promotion result:', leaderData, leaderError)
-      }
-      
-      // 2. Now demote all existing leaders
-      console.log('[DEBUG-TEAM-LEADER] Demoting all current leaders...')
-      const { data: demoteData, error: demoteError } = await supabase
-        .from('team_members')
-        .update({ is_leader: false })
-        .eq('team_id', teamId)
-        .neq('id', memberId) // Don't demote the one we're going to promote
-      
-      console.log('[DEBUG-TEAM-LEADER] Demotion result:', demoteData, demoteError)
-      
-      // 3. Finally, promote the specified member
-      console.log(`[DEBUG-TEAM-LEADER] Promoting member ${memberId}...`)
-      const { data: promoteData, error: promoteError } = await supabase
-        .from('team_members')
-        .update({ is_leader: true })
-        .eq('id', memberId)
-      
-      console.log('[DEBUG-TEAM-LEADER] Promotion result:', promoteData, promoteError)
-      
-      if (promoteError) {
-        throw new Error(`Error promoting team leader: ${promoteError.message}`)
-      }
-      
-      // 4. If we temporarily added ourselves to the team, remove ourselves
-      if (!existingMembership) {
-        console.log('[DEBUG-TEAM-LEADER] Removing our temporary membership...')
-        const { data: ownMembership } = await supabase
-          .from('team_members')
-          .select('id')
-          .eq('team_id', teamId)
-          .eq('user_id', user.id)
-          .single()
-        
-        if (ownMembership) {
-          const { data: leaveData, error: leaveError } = await supabase
-            .from('team_members')
-            .delete()
-            .eq('id', ownMembership.id)
-          
-          console.log('[DEBUG-TEAM-LEADER] Leave result:', leaveData, leaveError)
-        }
-      } else if (existingMembership && !existingMembership.is_leader) {
-        // Revert our leader status if we temporarily made ourselves a leader
-        console.log('[DEBUG-TEAM-LEADER] Reverting our temporary leader status...')
-        const { data: revertData, error: revertError } = await supabase
-          .from('team_members')
-          .update({ is_leader: false })
-          .eq('id', existingMembership.id)
-        
-        console.log('[DEBUG-TEAM-LEADER] Revert result:', revertData, revertError)
-      }
-      
-      // Verify the update occurred
-      console.log('[DEBUG-TEAM-LEADER] Verifying the promotion...')
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('team_members')
-        .select('id, user_id, is_leader, team_id')
-        .eq('id', memberId)
-        .single()
-      
-      console.log('[DEBUG-TEAM-LEADER] Verification result:', verifyData, verifyError)
-      
-      if (!verifyData?.is_leader) {
-        console.warn('[DEBUG-TEAM-LEADER] WARNING: Member was not properly promoted to leader')
-      } else {
-        console.log('[DEBUG-TEAM-LEADER] Successfully verified leader promotion')
-      }
-      
-      // Update current leader in state
-      setCurrentLeaderId(userId)
-      
-      // Update the members array
-      setApprovedMembers(prevMembers => 
-        prevMembers.map(member => {
-          if (member.id === memberId) {
-            return { ...member, is_leader: true }
-          } else {
-            return { ...member, is_leader: false }
+      // Use the admin API route instead of direct Supabase client
+      const response = await fetch(`/api/admin/teams/${teamId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'setTeamLeader',
+          data: {
+            memberId
           }
-        })
-      )
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to set team leader');
+      }
+      
+      console.log('[DEBUG-TEAM-LEADER] Successfully updated team leader via API')
+      
+      // Refresh the team data from the database to ensure UI is in sync
+      await loadTeam()
       
       setSuccess('Team leader updated successfully')
     } catch (error) {

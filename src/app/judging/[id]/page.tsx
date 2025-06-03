@@ -161,8 +161,8 @@ export default function JudgeProjectPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!judgeId || !project) {
-      setError('Unable to submit scores: missing judge or project information')
+    if (!judgeId || !project || !hackathonId) {
+      setError('Unable to submit scores: missing judge, project, or hackathon information')
       return
     }
     
@@ -181,19 +181,13 @@ export default function JudgeProjectPage() {
       setError(null)
       setSuccess(null)
       
-      const supabase = createClient()
-      
-      // Prepare scores for submission
-      const scoresToSubmit = criteria.map(criterion => {
-        const score = scores[criterion.id] !== undefined ? scores[criterion.id] : null
-        return {
-          project_id: projectId,
-          judge_id: judgeId,
-          criteria_id: criterion.id,
-          score,
-          feedback: feedback || null
-        }
-      }).filter(score => score.score !== null)
+      // Prepare scores for submission (only include criteria that have been scored)
+      const scoresToSubmit = criteria
+        .filter(criterion => scores[criterion.id] !== undefined && scores[criterion.id] !== null)
+        .map(criterion => ({
+          criteriaId: criterion.id,
+          score: scores[criterion.id]
+        }))
       
       if (scoresToSubmit.length === 0) {
         setError('Please score at least one criterion before saving')
@@ -201,95 +195,28 @@ export default function JudgeProjectPage() {
         return
       }
       
-      // Check if scores already exist
-      const { data: existingScores, error: checkError } = await supabase
-        .from('project_scores')
-        .select('id, criteria_id')
-        .eq('project_id', projectId)
-        .eq('judge_id', judgeId)
+      console.log(`[DEBUG-JUDGING] Submitting scores for project ${projectId}`)
       
-      if (checkError) {
-        console.error('Error checking existing scores:', checkError)
-        setError('Error checking existing scores')
-        setIsSaving(false)
-        return
+      // Use the judging API route
+      const response = await fetch(`/api/judging/${projectId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scores: scoresToSubmit,
+          feedback: feedback || null,
+          hackathonId: hackathonId
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to save scores');
       }
       
-      // Build a map of existing scores by criteria_id
-      const existingScoreMap: Record<string, string> = {}
-      existingScores?.forEach(score => {
-        existingScoreMap[score.criteria_id] = score.id
-      })
-      
-      // Separate scores to update and insert
-      const scoresToUpdate: any[] = []
-      const scoresToInsert: any[] = []
-      
-      scoresToSubmit.forEach(score => {
-        if (existingScoreMap[score.criteria_id]) {
-          // Score exists, update it
-          scoresToUpdate.push({
-            id: existingScoreMap[score.criteria_id],
-            score: score.score,
-            feedback: score.feedback
-          })
-        } else {
-          // New score, insert it
-          scoresToInsert.push(score)
-        }
-      })
-      
-      // Update existing scores
-      if (scoresToUpdate.length > 0) {
-        const { error: updateError } = await supabase
-          .from('project_scores')
-          .upsert(scoresToUpdate)
-        
-        if (updateError) {
-          console.error('Error updating scores:', updateError)
-          setError('Error updating scores')
-          setIsSaving(false)
-          return
-        }
-      }
-      
-      // Insert new scores
-      if (scoresToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from('project_scores')
-          .insert(scoresToInsert)
-        
-        if (insertError) {
-          console.error('Error saving scores:', insertError)
-          setError('Error saving scores')
-          setIsSaving(false)
-          return
-        }
-      }
-      
-      // If there are other scores that have feedback but weren't included in the scoresToSubmit,
-      // update their feedback
-      if (feedback) {
-        const unsubmittedCriteriaIds = Object.keys(existingScoreMap).filter(
-          criteriaId => !scoresToSubmit.some(score => score.criteria_id === criteriaId)
-        )
-        
-        if (unsubmittedCriteriaIds.length > 0) {
-          const feedbackUpdates = unsubmittedCriteriaIds.map(criteriaId => ({
-            id: existingScoreMap[criteriaId],
-            feedback
-          }))
-          
-          const { error: feedbackError } = await supabase
-            .from('project_scores')
-            .upsert(feedbackUpdates)
-          
-          if (feedbackError) {
-            console.error('Error updating feedback:', feedbackError)
-          }
-        }
-      }
-      
+      console.log('[DEBUG-JUDGING] Successfully saved scores via API')
       setSuccess('Scores saved successfully')
       
       // Optionally navigate back to the judging dashboard after a delay
@@ -298,8 +225,8 @@ export default function JudgeProjectPage() {
       }, 1500)
       
     } catch (err) {
-      console.error('Error saving scores:', err)
-      setError('An error occurred while saving scores')
+      console.error('[DEBUG-JUDGING] Error saving scores:', err)
+      setError(err instanceof Error ? err.message : 'An error occurred while saving scores')
     } finally {
       setIsSaving(false)
     }
